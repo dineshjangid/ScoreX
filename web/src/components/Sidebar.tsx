@@ -43,6 +43,18 @@ export default function Sidebar({ project }: { project: ProjectDetail }) {
           );
         })}
       </ol>
+
+      <div className="sidebar-section-label">Tools</div>
+      <ol className="sidebar-list">
+        <li>
+          <NavLink
+            to={`/projects/${project.id}/batch-scoring`}
+            className={({ isActive }) => `sidebar-item ${isActive ? "active" : ""}`}
+          >
+            <span className="sidebar-label">Batch Scoring</span>
+          </NavLink>
+        </li>
+      </ol>
     </nav>
   );
 }

@@ -41,6 +41,9 @@ class ProjectRecord(Base):
     # Path to the target/sample assignment (target + train/test/oot label
     # per row), once target definition + sampling have been run.
     splits_path = Column(String, nullable=True)
+    # Path to the most recently uploaded batch-scoring file (applicants to
+    # score with the finished scorecard, no target needed).
+    batch_path = Column(String, nullable=True)
 
 
 def _add_missing_columns() -> None:

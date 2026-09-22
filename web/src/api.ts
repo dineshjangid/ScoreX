@@ -283,6 +283,14 @@ export interface ReasonCodesArtifact {
   preview: Record<string, unknown>[];
 }
 
+export interface BatchScoringResult {
+  filename: string;
+  n_scored: number;
+  top_n: number;
+  score_distribution: ScoreDistribution;
+  preview: Record<string, unknown>[];
+}
+
 export interface ProjectDetail extends ProjectSummary {
   step_status: Record<string, StepStatus>;
   artifacts: Record<string, unknown> & {
@@ -296,6 +304,7 @@ export interface ProjectDetail extends ProjectSummary {
     validation?: ValidationArtifact;
     reason_codes?: ReasonCodesArtifact;
     ml_benchmark?: MLBenchmarkResult & { config: MLBenchmarkConfigInput };
+    batch_scoring?: BatchScoringResult;
   };
 }
 
@@ -444,4 +453,14 @@ export const api = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+  uploadBatch: async (projectId: string, file: File, topN: number): Promise<BatchScoringResult> => {
+    const formData = new FormData();
+    formData.append("file", file);
+    const res = await fetch(`${API_BASE}/projects/${projectId}/batch_scoring?top_n=${topN}`, {
+      method: "POST",
+      body: formData,
+    });
+    if (!res.ok) throw new Error(`API error ${res.status}: ${await res.text()}`);
+    return res.json() as Promise<BatchScoringResult>;
+  },
 };

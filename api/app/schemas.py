@@ -257,6 +257,14 @@ class ReasonCodesOut(BaseModel):
     preview: list[dict]
 
 
+class BatchScoringOut(BaseModel):
+    filename: str
+    n_scored: int
+    top_n: int
+    score_distribution: ScoreDistribution
+    preview: list[dict]
+
+
 class ValidationOut(BaseModel):
     train: SampleMetrics
     test: SampleMetrics

@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .db import init_db
 from .routers import (
+    batch_scoring,
     binning,
     data,
     ml_benchmark,
@@ -40,6 +41,7 @@ app.include_router(scaling.router)
 app.include_router(validation.router)
 app.include_router(reason_codes.router)
 app.include_router(reporting.router)
+app.include_router(batch_scoring.router)
 
 
 @app.on_event("startup")
