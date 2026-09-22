@@ -37,7 +37,7 @@ export default function ProjectList() {
 
   return (
     <div className="page">
-      <h1>Scorecard Projects</h1>
+      <h1 className="page-title">Scorecard Projects</h1>
 
       <form className="card" onSubmit={handleCreate}>
         <h2>New project</h2>
