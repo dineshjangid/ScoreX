@@ -18,6 +18,7 @@ from .routers import (
     selection,
     target,
     validation,
+    versions,
 )
 
 app = FastAPI(title="Credit Risk Scorecard Tool API", version="0.1.0")
@@ -42,6 +43,7 @@ app.include_router(validation.router)
 app.include_router(reason_codes.router)
 app.include_router(reporting.router)
 app.include_router(batch_scoring.router)
+app.include_router(versions.router)
 
 
 @app.on_event("startup")

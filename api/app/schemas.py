@@ -282,3 +282,24 @@ class ValidationOut(BaseModel):
     psi_oot_vs_train: StabilityResult | None
     csi_test_vs_train: dict[str, StabilityResult]
     csi_oot_vs_train: dict[str, StabilityResult] | None
+
+
+class VersionCreateIn(BaseModel):
+    label: str | None = None
+
+
+class VersionSummary(BaseModel):
+    id: str
+    version_number: int
+    label: str | None
+    is_champion: bool
+    created_at: str
+    n_variables: int
+    train_auc: float | None
+    train_ks: float | None
+    train_gini: float | None
+    score_range: str | None
+
+
+class VersionDetail(VersionSummary):
+    snapshot: dict

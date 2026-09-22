@@ -5,6 +5,7 @@ import Overview from "./pages/Overview";
 import ProjectLayout from "./pages/ProjectLayout";
 import ProjectList from "./pages/ProjectList";
 import StepPage from "./pages/StepPage";
+import VersionsPage from "./pages/VersionsPage";
 
 function App() {
   return (
@@ -13,6 +14,7 @@ function App() {
       <Route path="/projects/:id" element={<ProjectLayout />}>
         <Route index element={<Overview />} />
         <Route path="batch-scoring" element={<BatchScoringPage />} />
+        <Route path="versions" element={<VersionsPage />} />
         <Route path=":step" element={<StepPage />} />
       </Route>
     </Routes>

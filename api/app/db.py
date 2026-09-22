@@ -9,7 +9,7 @@ import json
 import os
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, String, Text, create_engine
+from sqlalchemy import Boolean, Column, Integer, String, Text, create_engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 DATA_DIR = os.environ.get("CREDITTOOL_DATA_DIR", os.path.expanduser("~/.credittool"))
@@ -44,6 +44,26 @@ class ProjectRecord(Base):
     # Path to the most recently uploaded batch-scoring file (applicants to
     # score with the finished scorecard, no target needed).
     batch_path = Column(String, nullable=True)
+
+
+class ModelVersionRecord(Base):
+    """A saved snapshot of one model build (binning through validation),
+    for champion/challenger comparison across iterations. Independent of
+    the project's current step_status/artifacts — saving a version never
+    changes them, and re-running a step never touches saved versions.
+    """
+
+    __tablename__ = "model_versions"
+
+    id = Column(String, primary_key=True)
+    project_id = Column(String, nullable=False, index=True)
+    version_number = Column(Integer, nullable=False)
+    label = Column(String, nullable=True)
+    is_champion = Column(Boolean, nullable=False, default=False)
+    created_at = Column(String, nullable=False)
+    # JSON: {target_definition, sampling, binning, variable_selection,
+    # modeling, scaling, validation, ml_benchmark} as they were when saved.
+    snapshot = Column(Text, nullable=False)
 
 
 def _add_missing_columns() -> None:

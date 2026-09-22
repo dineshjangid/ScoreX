@@ -319,6 +319,32 @@ export interface ReportingStatus {
   status: string;
 }
 
+export interface VersionSummary {
+  id: string;
+  version_number: number;
+  label: string | null;
+  is_champion: boolean;
+  created_at: string;
+  n_variables: number;
+  train_auc: number | null;
+  train_ks: number | null;
+  train_gini: number | null;
+  score_range: string | null;
+}
+
+export interface VersionDetail extends VersionSummary {
+  snapshot: {
+    target_definition?: TargetArtifact;
+    sampling?: SamplingArtifact;
+    binning?: BinningArtifact;
+    variable_selection?: SelectionArtifact;
+    modeling?: ModelArtifact;
+    scaling?: ScalingArtifact;
+    validation?: ValidationArtifact;
+    ml_benchmark?: (MLBenchmarkResult & { config: MLBenchmarkConfigInput }) | null;
+  };
+}
+
 export interface MLBenchmarkConfigInput {
   variables: string[] | null;
   n_estimators: number;
@@ -470,4 +496,16 @@ export const api = {
     if (!res.ok) throw new Error(`API error ${res.status}: ${await res.text()}`);
     return res.json() as Promise<BatchScoringResult>;
   },
+  createVersion: (projectId: string, label: string | null) =>
+    request<VersionSummary>(`/projects/${projectId}/versions`, {
+      method: "POST",
+      body: JSON.stringify({ label }),
+    }),
+  listVersions: (projectId: string) => request<VersionSummary[]>(`/projects/${projectId}/versions`),
+  getVersion: (projectId: string, versionId: string) =>
+    request<VersionDetail>(`/projects/${projectId}/versions/${versionId}`),
+  setChampion: (projectId: string, versionId: string) =>
+    request<VersionSummary>(`/projects/${projectId}/versions/${versionId}/champion`, { method: "POST" }),
+  deleteVersion: (projectId: string, versionId: string) =>
+    request<void>(`/projects/${projectId}/versions/${versionId}`, { method: "DELETE" }),
 };
