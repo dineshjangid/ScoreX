@@ -2,20 +2,16 @@ from __future__ import annotations
 
 import json
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from sqlalchemy import select
 
 from credittool_engine.project import Project
 
 from ..db import ProjectRecord, get_session
+from ..repo import get_record_or_404, record_to_project
 from ..schemas import ProjectCreate, ProjectDetail, ProjectSummary
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
-
-
-def _record_to_project(record: ProjectRecord) -> Project:
-    data = json.loads(record.payload)
-    return Project.from_dict(data)
 
 
 @router.post("", response_model=ProjectDetail)
@@ -54,18 +50,14 @@ def list_projects() -> list[ProjectSummary]:
 @router.get("/{project_id}", response_model=ProjectDetail)
 def get_project(project_id: str) -> ProjectDetail:
     with get_session() as session:
-        record = session.get(ProjectRecord, project_id)
-        if record is None:
-            raise HTTPException(status_code=404, detail="Project not found")
-        project = _record_to_project(record)
+        record = get_record_or_404(session, project_id)
+        project = record_to_project(record)
         return ProjectDetail(**project.to_dict())
 
 
 @router.delete("/{project_id}", status_code=204)
 def delete_project(project_id: str) -> None:
     with get_session() as session:
-        record = session.get(ProjectRecord, project_id)
-        if record is None:
-            raise HTTPException(status_code=404, detail="Project not found")
+        record = get_record_or_404(session, project_id)
         session.delete(record)
         session.commit()

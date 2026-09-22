@@ -11,9 +11,40 @@ export interface ProjectSummary {
   updated_at: string;
 }
 
+export interface ColumnProfile {
+  name: string;
+  kind: "numeric" | "categorical" | "boolean" | "datetime";
+  count: number;
+  missing_count: number;
+  missing_pct: number;
+  n_unique: number;
+  stats?: {
+    mean: number;
+    std: number;
+    min: number;
+    p25: number;
+    median: number;
+    p75: number;
+    max: number;
+  };
+  top_values?: { value: string; count: number; pct: number }[];
+}
+
+export interface DataIngestionArtifact {
+  original_filename: string;
+  n_rows: number;
+  n_columns: number;
+  columns: ColumnProfile[];
+}
+
+export interface DataPreview {
+  columns: string[];
+  rows: Record<string, unknown>[];
+}
+
 export interface ProjectDetail extends ProjectSummary {
   step_status: Record<string, StepStatus>;
-  artifacts: Record<string, unknown>;
+  artifacts: Record<string, unknown> & { data_ingestion?: DataIngestionArtifact };
 }
 
 export const STEP_ORDER = [
@@ -63,4 +94,16 @@ export const api = {
     }),
   getProject: (id: string) => request<ProjectDetail>(`/projects/${id}`),
   deleteProject: (id: string) => request<void>(`/projects/${id}`, { method: "DELETE" }),
+  uploadData: async (projectId: string, file: File): Promise<ProjectDetail> => {
+    const formData = new FormData();
+    formData.append("file", file);
+    const res = await fetch(`${API_BASE}/projects/${projectId}/data`, {
+      method: "POST",
+      body: formData,
+    });
+    if (!res.ok) throw new Error(`API error ${res.status}: ${await res.text()}`);
+    return res.json() as Promise<ProjectDetail>;
+  },
+  getDataPreview: (projectId: string, n = 20) =>
+    request<DataPreview>(`/projects/${projectId}/data/preview?n=${n}`),
 };

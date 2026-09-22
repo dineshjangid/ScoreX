@@ -94,17 +94,40 @@ button.danger {
 }
 
 .step {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 16px;
   border: 1px solid var(--border);
   border-radius: 8px;
+  overflow: hidden;
 }
 
 .step.complete {
   border-color: var(--accent-border);
+}
+
+.step-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  text-align: left;
+  font: inherit;
+  color: var(--text-h);
+}
+
+.step.complete .step-row {
   background: var(--accent-bg);
+}
+
+.step-row:disabled {
+  cursor: default;
+  opacity: 1;
+}
+
+.step-row:not(:disabled) {
+  cursor: pointer;
 }
 
 .step-index {
@@ -116,6 +139,7 @@ button.danger {
   align-items: center;
   justify-content: center;
   font-size: 13px;
+  flex-shrink: 0;
 }
 
 .step-label {
@@ -127,4 +151,56 @@ button.danger {
   font-size: 13px;
   color: var(--text);
   text-transform: capitalize;
+}
+
+.chevron {
+  width: 20px;
+  text-align: center;
+  color: var(--text);
+}
+
+.step-body {
+  padding: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.ingestion-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.upload-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.file-button {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: 1px solid var(--accent-border);
+  background: var(--accent-bg);
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.profile-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.profile-table th,
+.profile-table td {
+  text-align: left;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.preview-scroll {
+  max-width: 100%;
+  overflow-x: auto;
 }

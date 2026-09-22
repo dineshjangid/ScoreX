@@ -21,3 +21,8 @@ class ProjectSummary(BaseModel):
 class ProjectDetail(ProjectSummary):
     step_status: dict[str, StepStatus]
     artifacts: dict
+
+
+class DataPreview(BaseModel):
+    columns: list[str]
+    rows: list[dict]
