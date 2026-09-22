@@ -8,7 +8,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from credittool_engine.binning import apply_binning
-from credittool_engine.project import STEP_ORDER, Project, StepName, StepStatus
+from credittool_engine.project import Project, StepName, StepStatus, steps_for
 
 from .db import ProjectRecord
 
@@ -23,7 +23,8 @@ def invalidate_downstream(project: Project, record: ProjectRecord, from_step: St
     this whenever a step is (re)saved, since anything computed against its
     old output is now stale.
     """
-    reset_steps = STEP_ORDER[STEP_ORDER.index(from_step) + 1 :]
+    order = steps_for(project.scorecard_type)
+    reset_steps = order[order.index(from_step) + 1 :]
     for step in reset_steps:
         project.mark_step(step, StepStatus.NOT_STARTED)
         project.artifacts.pop(step.value, None)

@@ -303,3 +303,64 @@ class VersionSummary(BaseModel):
 
 class VersionDetail(VersionSummary):
     snapshot: dict
+
+
+class DecisionTreeConfigIn(BaseModel):
+    variables: list[str] | None = None
+    max_depth: int = 4
+    min_leaf_size_frac: float = 0.05
+    criterion: str = "gini"
+
+
+class BranchRuleOut(BaseModel):
+    variable: str
+    kind: str
+    operator: str
+    threshold: float | None = None
+    values: list[str] | None = None
+
+
+class TreeNodeOut(BaseModel):
+    id: str
+    parent_id: str | None
+    depth: int
+    branch_rule: BranchRuleOut | None
+    branch_description: str
+    n_total: int
+    n_bad: int
+    n_good: int
+    bad_rate_pct: float
+    is_leaf: bool
+    split_variable: str | None
+    split_kind: str | None
+    split_threshold: float | None
+    split_left_values: list[str] | None
+    split_right_values: list[str] | None
+    children: list[str]
+    policy: str | None
+
+
+class DecisionTreeOut(BaseModel):
+    root_id: str
+    nodes: dict[str, TreeNodeOut]
+
+
+class NodeSplitIn(BaseModel):
+    variable: str
+    kind: str
+    threshold: float | None = None
+    left_values: list[str] | None = None
+    right_values: list[str] | None = None
+
+
+class NodePolicyIn(BaseModel):
+    policy: str | None = None
+
+
+class LeafRuleOut(BaseModel):
+    node_id: str
+    rule: str
+    n_total: int
+    n_bad: int
+    bad_rate_pct: float
+    policy: str | None

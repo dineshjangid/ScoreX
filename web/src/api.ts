@@ -1,6 +1,6 @@
 export const API_BASE = "http://127.0.0.1:8000/api";
 
-export type ScorecardType = "application" | "behavioural";
+export type ScorecardType = "application" | "behavioural" | "decision_tree";
 export type StepStatus = "not_started" | "in_progress" | "complete";
 
 export interface ProjectSummary {
@@ -298,6 +298,64 @@ export interface BatchScoringResult {
   preview: Record<string, unknown>[];
 }
 
+export interface BranchRule {
+  variable: string;
+  kind: "numeric" | "categorical";
+  operator: "<=" | ">" | "missing" | "in" | "not_in";
+  threshold: number | null;
+  values: string[] | null;
+}
+
+export interface TreeNode {
+  id: string;
+  parent_id: string | null;
+  depth: number;
+  branch_rule: BranchRule | null;
+  branch_description: string;
+  n_total: number;
+  n_bad: number;
+  n_good: number;
+  bad_rate_pct: number;
+  is_leaf: boolean;
+  split_variable: string | null;
+  split_kind: "numeric" | "categorical" | null;
+  split_threshold: number | null;
+  split_left_values: string[] | null;
+  split_right_values: string[] | null;
+  children: string[];
+  policy: string | null;
+}
+
+export interface DecisionTreeArtifact {
+  config?: DecisionTreeConfigInput;
+  root_id: string;
+  nodes: Record<string, TreeNode>;
+}
+
+export interface DecisionTreeConfigInput {
+  variables: string[] | null;
+  max_depth: number;
+  min_leaf_size_frac: number;
+  criterion: "gini" | "entropy";
+}
+
+export interface NodeSplitInput {
+  variable: string;
+  kind: "numeric" | "categorical";
+  threshold?: number | null;
+  left_values?: string[] | null;
+  right_values?: string[] | null;
+}
+
+export interface LeafRuleRow {
+  node_id: string;
+  rule: string;
+  n_total: number;
+  n_bad: number;
+  bad_rate_pct: number;
+  policy: string | null;
+}
+
 export interface ProjectDetail extends ProjectSummary {
   step_status: Record<string, StepStatus>;
   artifacts: Record<string, unknown> & {
@@ -312,6 +370,7 @@ export interface ProjectDetail extends ProjectSummary {
     reason_codes?: ReasonCodesArtifact;
     ml_benchmark?: MLBenchmarkResult & { config: MLBenchmarkConfigInput };
     batch_scoring?: BatchScoringResult;
+    decision_tree?: DecisionTreeArtifact;
   };
 }
 
@@ -378,6 +437,14 @@ export const STEP_ORDER = [
   "reporting",
 ] as const;
 
+// Decision Tree projects skip WOE binning/logistic regression/scaling
+// entirely — the tree itself is the model and the deployable artifact.
+export const DECISION_TREE_STEP_ORDER = ["data_ingestion", "target_definition", "sampling", "decision_tree"] as const;
+
+export function stepOrderFor(scorecardType: ScorecardType): readonly string[] {
+  return scorecardType === "decision_tree" ? DECISION_TREE_STEP_ORDER : STEP_ORDER;
+}
+
 export const STEP_LABELS: Record<string, string> = {
   data_ingestion: "Data Ingestion & Profiling",
   target_definition: "Target Definition",
@@ -389,6 +456,7 @@ export const STEP_LABELS: Record<string, string> = {
   validation: "Validation",
   reason_codes: "Reason Codes",
   reporting: "Documentation & Export",
+  decision_tree: "Decision Tree",
 };
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
@@ -508,4 +576,22 @@ export const api = {
     request<VersionSummary>(`/projects/${projectId}/versions/${versionId}/champion`, { method: "POST" }),
   deleteVersion: (projectId: string, versionId: string) =>
     request<void>(`/projects/${projectId}/versions/${versionId}`, { method: "DELETE" }),
+  buildDecisionTree: (projectId: string, body: DecisionTreeConfigInput) =>
+    request<DecisionTreeArtifact>(`/projects/${projectId}/decision_tree`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  splitTreeNode: (projectId: string, nodeId: string, body: NodeSplitInput) =>
+    request<DecisionTreeArtifact>(`/projects/${projectId}/decision_tree/nodes/${nodeId}/split`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
+  pruneTreeNode: (projectId: string, nodeId: string) =>
+    request<DecisionTreeArtifact>(`/projects/${projectId}/decision_tree/nodes/${nodeId}/prune`, { method: "POST" }),
+  setTreeNodePolicy: (projectId: string, nodeId: string, policy: string | null) =>
+    request<DecisionTreeArtifact>(`/projects/${projectId}/decision_tree/nodes/${nodeId}/policy`, {
+      method: "PUT",
+      body: JSON.stringify({ policy }),
+    }),
+  getTreeRules: (projectId: string) => request<LeafRuleRow[]>(`/projects/${projectId}/decision_tree/rules`),
 };

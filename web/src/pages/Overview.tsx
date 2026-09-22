@@ -1,13 +1,15 @@
 import { Link, useOutletContext } from "react-router-dom";
-import { STEP_LABELS, STEP_ORDER } from "../api";
+import { STEP_LABELS, stepOrderFor } from "../api";
 import type { ProjectOutletContext } from "./ProjectLayout";
 
 export default function Overview() {
   const { project } = useOutletContext<ProjectOutletContext>();
+  const stepOrder = stepOrderFor(project.scorecard_type);
 
   const target = project.artifacts.target_definition?.summary;
   const validation = project.artifacts.validation?.train;
   const scaling = project.artifacts.scaling;
+  const tree = project.artifacts.decision_tree;
 
   const stats: { label: string; value: string }[] = [];
   if (target) stats.push({ label: "Bad rate", value: `${target.bad_rate_pct}%` });
@@ -17,8 +19,14 @@ export default function Overview() {
     stats.push({ label: "Train Gini", value: `${validation.gini}` });
   }
   if (scaling) stats.push({ label: "Score range", value: `${scaling.min_score}–${scaling.max_score}` });
+  if (tree) {
+    const nodes = Object.values(tree.nodes);
+    stats.push({ label: "Tree nodes", value: String(nodes.length) });
+    stats.push({ label: "Leaves", value: String(nodes.filter((n) => n.is_leaf).length) });
+    stats.push({ label: "Depth", value: String(Math.max(...nodes.map((n) => n.depth))) });
+  }
 
-  const nComplete = STEP_ORDER.filter((s) => project.step_status[s] === "complete").length;
+  const nComplete = stepOrder.filter((s) => project.step_status[s] === "complete").length;
 
   return (
     <div className="step-page">
@@ -35,7 +43,7 @@ export default function Overview() {
           <dt>Last updated</dt>
           <dd>{new Date(project.updated_at).toLocaleString()}</dd>
           <dt>Progress</dt>
-          <dd>{nComplete} / {STEP_ORDER.length} steps complete</dd>
+          <dd>{nComplete} / {stepOrder.length} steps complete</dd>
         </dl>
       </div>
 
@@ -51,7 +59,7 @@ export default function Overview() {
       )}
 
       <div className="module-grid">
-        {STEP_ORDER.map((step, i) => {
+        {stepOrder.map((step, i) => {
           const status = project.step_status[step] ?? "not_started";
           return (
             <Link key={step} to={`/projects/${project.id}/${step}`} className={`module-card status-${status}`}>

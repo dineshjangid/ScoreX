@@ -8,6 +8,7 @@ from .routers import (
     batch_scoring,
     binning,
     data,
+    decision_tree,
     ml_benchmark,
     modeling,
     projects,
@@ -44,6 +45,7 @@ app.include_router(reason_codes.router)
 app.include_router(reporting.router)
 app.include_router(batch_scoring.router)
 app.include_router(versions.router)
+app.include_router(decision_tree.router)
 
 
 @app.on_event("startup")

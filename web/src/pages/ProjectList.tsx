@@ -6,6 +6,7 @@ import type { ProjectSummary, ScorecardType } from "../api";
 const SCORECARD_TYPES: { value: ScorecardType; label: string; description: string }[] = [
   { value: "application", label: "Application", description: "Score new applicants at origination" },
   { value: "behavioural", label: "Behavioural", description: "Score existing customers on repayment behaviour" },
+  { value: "decision_tree", label: "Decision Tree", description: "Build strategy/policy trees for segmentation" },
 ];
 
 export default function ProjectList() {

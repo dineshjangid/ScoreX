@@ -1,5 +1,5 @@
 import { NavLink } from "react-router-dom";
-import { STEP_LABELS, STEP_ORDER } from "../api";
+import { STEP_LABELS, stepOrderFor } from "../api";
 import type { ProjectDetail, StepStatus } from "../api";
 
 const STATUS_ICON: Record<StepStatus, string> = {
@@ -9,6 +9,12 @@ const STATUS_ICON: Record<StepStatus, string> = {
 };
 
 export default function Sidebar({ project }: { project: ProjectDetail }) {
+  const stepOrder = stepOrderFor(project.scorecard_type);
+  // Batch scoring and model versioning are scorecard-specific (they need a
+  // fitted logistic model + scaling); Decision Tree projects export
+  // directly from their own step page instead.
+  const showScorecardTools = project.scorecard_type !== "decision_tree";
+
   return (
     <nav className="sidebar">
       <div className="sidebar-header">
@@ -28,7 +34,7 @@ export default function Sidebar({ project }: { project: ProjectDetail }) {
       </NavLink>
 
       <ol className="sidebar-list">
-        {STEP_ORDER.map((step, i) => {
+        {stepOrder.map((step, i) => {
           const status = project.step_status[step] ?? "not_started";
           return (
             <li key={step}>
@@ -44,25 +50,29 @@ export default function Sidebar({ project }: { project: ProjectDetail }) {
         })}
       </ol>
 
-      <div className="sidebar-section-label">Tools</div>
-      <ol className="sidebar-list">
-        <li>
-          <NavLink
-            to={`/projects/${project.id}/batch-scoring`}
-            className={({ isActive }) => `sidebar-item ${isActive ? "active" : ""}`}
-          >
-            <span className="sidebar-label">Batch Scoring</span>
-          </NavLink>
-        </li>
-        <li>
-          <NavLink
-            to={`/projects/${project.id}/versions`}
-            className={({ isActive }) => `sidebar-item ${isActive ? "active" : ""}`}
-          >
-            <span className="sidebar-label">Model Versions</span>
-          </NavLink>
-        </li>
-      </ol>
+      {showScorecardTools && (
+        <>
+          <div className="sidebar-section-label">Tools</div>
+          <ol className="sidebar-list">
+            <li>
+              <NavLink
+                to={`/projects/${project.id}/batch-scoring`}
+                className={({ isActive }) => `sidebar-item ${isActive ? "active" : ""}`}
+              >
+                <span className="sidebar-label">Batch Scoring</span>
+              </NavLink>
+            </li>
+            <li>
+              <NavLink
+                to={`/projects/${project.id}/versions`}
+                className={({ isActive }) => `sidebar-item ${isActive ? "active" : ""}`}
+              >
+                <span className="sidebar-label">Model Versions</span>
+              </NavLink>
+            </li>
+          </ol>
+        </>
+      )}
     </nav>
   );
 }

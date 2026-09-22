@@ -1,7 +1,10 @@
-"""Core domain object: a single scorecard-build-in-progress.
+"""Core domain object: a single project-build-in-progress.
 
-A Project tracks one scorecard development lifecycle (data -> target ->
-sampling -> binning -> modeling -> scaling -> validation -> reporting).
+A Project tracks one development lifecycle. Application/Behavioural
+scorecards share one lifecycle (data -> target -> sampling -> binning ->
+... -> reporting); Decision Tree projects use a shorter one (data ->
+target -> sampling -> decision tree) since strategy-tree building
+doesn't go through WOE binning/logistic regression/scaling at all.
 It holds no I/O or web concerns — the API layer is responsible for
 persisting/loading Project instances (see api/app/models.py).
 """
@@ -17,6 +20,7 @@ from typing import Any
 class ScorecardType(str, Enum):
     APPLICATION = "application"
     BEHAVIOURAL = "behavioural"
+    DECISION_TREE = "decision_tree"
 
 
 class StepName(str, Enum):
@@ -30,6 +34,7 @@ class StepName(str, Enum):
     VALIDATION = "validation"
     REASON_CODES = "reason_codes"
     REPORTING = "reporting"
+    DECISION_TREE = "decision_tree"
 
 
 class StepStatus(str, Enum):
@@ -38,9 +43,10 @@ class StepStatus(str, Enum):
     COMPLETE = "complete"
 
 
-# The fixed lifecycle order every project moves through. UIs use this to
-# render the wizard's step list; engine subpackages implement each step.
-STEP_ORDER: list[StepName] = [
+# The lifecycle order an Application/Behavioural scorecard project moves
+# through. UIs use this to render the wizard's step list; engine
+# subpackages implement each step.
+SCORECARD_STEP_ORDER: list[StepName] = [
     StepName.DATA_INGESTION,
     StepName.TARGET_DEFINITION,
     StepName.SAMPLING,
@@ -53,6 +59,27 @@ STEP_ORDER: list[StepName] = [
     StepName.REPORTING,
 ]
 
+# Decision Tree projects skip WOE binning/logistic regression/scaling
+# entirely — the tree itself is both the model and the deployable
+# artifact (a strategy/policy tree), so its lifecycle is much shorter.
+DECISION_TREE_STEP_ORDER: list[StepName] = [
+    StepName.DATA_INGESTION,
+    StepName.TARGET_DEFINITION,
+    StepName.SAMPLING,
+    StepName.DECISION_TREE,
+]
+
+# Backwards-compatible alias — existing call sites that assumed a single
+# universal step order (pre-dating Decision Tree projects) keep working.
+STEP_ORDER = SCORECARD_STEP_ORDER
+
+
+def steps_for(scorecard_type: ScorecardType) -> list[StepName]:
+    """The lifecycle step order for a given project type."""
+    if scorecard_type == ScorecardType.DECISION_TREE:
+        return DECISION_TREE_STEP_ORDER
+    return SCORECARD_STEP_ORDER
+
 
 @dataclass
 class Project:
@@ -61,13 +88,15 @@ class Project:
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    step_status: dict[StepName, StepStatus] = field(
-        default_factory=lambda: {step: StepStatus.NOT_STARTED for step in STEP_ORDER}
-    )
     # Free-form per-step results (profiling summary, binning tables, model
     # coefficients, validation metrics, ...). Keyed by StepName.value.
     # Concrete shapes are defined by each engine subpackage as it's built.
+    step_status: dict[StepName, StepStatus] = field(default_factory=dict)
     artifacts: dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if not self.step_status:
+            self.step_status = {step: StepStatus.NOT_STARTED for step in steps_for(self.scorecard_type)}
 
     def mark_step(self, step: StepName, status: StepStatus) -> None:
         self.step_status[step] = status

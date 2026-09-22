@@ -2,6 +2,7 @@ import { useOutletContext, useParams } from "react-router-dom";
 import { STEP_LABELS } from "../api";
 import BinningPanel from "../components/BinningPanel";
 import DataIngestionPanel from "../components/DataIngestionPanel";
+import DecisionTreePanel from "../components/DecisionTreePanel";
 import ModelingPanel from "../components/ModelingPanel";
 import ReasonCodesPanel from "../components/ReasonCodesPanel";
 import ReportingPanel from "../components/ReportingPanel";
@@ -43,6 +44,8 @@ export default function StepPage() {
         return <ReasonCodesPanel project={project} onSaved={setProject} />;
       case "reporting":
         return <ReportingPanel project={project} onSaved={setProject} />;
+      case "decision_tree":
+        return <DecisionTreePanel project={project} onSaved={setProject} />;
       default:
         return <p className="error">Unknown step "{step}"</p>;
     }
