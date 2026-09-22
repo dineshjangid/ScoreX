@@ -108,6 +108,11 @@ class BinningSummaryItem(BaseModel):
     n_bins: int
 
 
+class ManualBinningIn(BaseModel):
+    cutpoints: list[float] | None = None
+    categories_map: dict[str, str] | None = None
+
+
 class SelectionConfigIn(BaseModel):
     min_iv: float = 0.02
     max_corr: float = 0.7

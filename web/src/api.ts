@@ -406,6 +406,15 @@ export const api = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+  editBinning: (
+    projectId: string,
+    variable: string,
+    body: { cutpoints?: number[] | null; categories_map?: Record<string, string> | null }
+  ) =>
+    request<BinningSummaryItem>(`/projects/${projectId}/binning/${encodeURIComponent(variable)}`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
   runSelection: (projectId: string, body: SelectionConfigInput) =>
     request<SelectionResult>(`/projects/${projectId}/selection`, {
       method: "POST",

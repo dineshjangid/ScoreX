@@ -3,6 +3,7 @@ from __future__ import annotations
 import pandas as pd
 
 from .categorical import bin_categorical_variable
+from .manual import apply_manual_categorical_bins, apply_manual_numeric_bins
 from .numeric import bin_numeric_variable
 from .transform import apply_binning, apply_variable_binning, assign_bin_labels
 from .types import MISSING_LABEL, OTHER_LABEL, VariableBinning
@@ -20,6 +21,8 @@ __all__ = [
     "apply_binning",
     "apply_variable_binning",
     "assign_bin_labels",
+    "apply_manual_numeric_bins",
+    "apply_manual_categorical_bins",
 ]
 
 

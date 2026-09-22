@@ -5,13 +5,13 @@ import os
 import pandas as pd
 from fastapi import APIRouter, HTTPException
 
-from credittool_engine.binning import bin_variable
+from credittool_engine.binning import apply_manual_categorical_bins, apply_manual_numeric_bins, bin_variable
 from credittool_engine.data import load_dataframe
 from credittool_engine.project import StepName, StepStatus
 
 from ..db import get_session
 from ..repo import get_record_or_404, invalidate_downstream, record_to_project, save_project
-from ..schemas import BinningConfigIn, BinningSummaryItem
+from ..schemas import BinningConfigIn, BinningSummaryItem, ManualBinningIn
 
 router = APIRouter(prefix="/api/projects/{project_id}/binning", tags=["binning"])
 
@@ -72,3 +72,42 @@ def run_binning(project_id: str, body: BinningConfigIn) -> list[BinningSummaryIt
         save_project(session, record, project)
 
     return results
+
+
+@router.put("/{variable}", response_model=BinningSummaryItem)
+def edit_variable_binning(project_id: str, variable: str, body: ManualBinningIn) -> BinningSummaryItem:
+    with get_session() as session:
+        record = get_record_or_404(session, project_id)
+        project = record_to_project(record)
+
+        binning_artifact = project.artifacts.get(StepName.BINNING.value)
+        if not binning_artifact or variable not in binning_artifact["variables"]:
+            raise HTTPException(status_code=400, detail=f"Variable '{variable}' has not been binned yet")
+
+        kind = binning_artifact["variables"][variable]["kind"]
+
+        df = load_dataframe(record.data_path)
+        splits = pd.read_parquet(record.splits_path)
+        train_idx = splits.index[splits["sample"] == "train"]
+        bad_flag = splits.loc[train_idx, "target"]
+
+        if kind == "numeric":
+            if body.cutpoints is None:
+                raise HTTPException(status_code=400, detail="cutpoints is required for a numeric variable")
+            binning = apply_manual_numeric_bins(df.loc[train_idx, variable], bad_flag, body.cutpoints)
+        else:
+            if body.categories_map is None:
+                raise HTTPException(status_code=400, detail="categories_map is required for a categorical variable")
+            try:
+                binning = apply_manual_categorical_bins(df.loc[train_idx, variable], bad_flag, body.categories_map)
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+        binning_artifact["variables"][variable] = binning.to_dict()
+        project.set_artifact(StepName.BINNING, binning_artifact)
+        # The edited variable's WOE/IV changed, so anything built from it
+        # (selection onward) is stale.
+        invalidate_downstream(project, record, StepName.BINNING)
+        save_project(session, record, project)
+
+    return BinningSummaryItem(variable=variable, kind=binning.kind, iv=binning.iv, n_bins=len(binning.bins))

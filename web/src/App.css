@@ -623,3 +623,27 @@ button.danger:hover:not(:disabled) {
   font-size: 14px;
   font-weight: normal;
 }
+
+.bin-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+  border: 1px dashed var(--accent-border);
+  border-radius: 8px;
+  background: var(--accent-bg);
+}
+
+.category-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 10px;
+}
+
+.category-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 500;
+}

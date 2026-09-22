@@ -1,6 +1,7 @@
 import { Fragment, useState } from "react";
 import { api } from "../api";
 import type { BinningSummaryItem, ProjectDetail } from "../api";
+import BinEditor from "./BinEditor";
 
 interface Props {
   project: ProjectDetail;
@@ -23,6 +24,7 @@ export default function BinningPanel({ project, onSaved }: Props) {
     existing ? Object.values(existing.variables).map((v) => ({ variable: v.variable, kind: v.kind, iv: v.iv, n_bins: v.bins.length })).sort((a, b) => b.iv - a.iv) : null
   );
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [editing, setEditing] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -40,6 +42,13 @@ export default function BinningPanel({ project, onSaved }: Props) {
     } finally {
       setBusy(false);
     }
+  }
+
+  async function handleEditSaved(result: BinningSummaryItem) {
+    setResults((prev) => (prev ? prev.map((r) => (r.variable === result.variable ? result : r)).sort((a, b) => b.iv - a.iv) : prev));
+    setEditing(null);
+    setExpanded(result.variable);
+    onSaved(await api.getProject(project.id));
   }
 
   if (!samplingReady) {
@@ -88,6 +97,7 @@ export default function BinningPanel({ project, onSaved }: Props) {
             {results.map((r) => {
               const detail = project.artifacts.binning?.variables[r.variable];
               const isExpanded = expanded === r.variable;
+              const isEditing = editing === r.variable;
               return (
                 <Fragment key={r.variable}>
                   <tr>
@@ -96,11 +106,28 @@ export default function BinningPanel({ project, onSaved }: Props) {
                     <td>{r.n_bins}</td>
                     <td>{r.iv.toFixed(4)}</td>
                     <td>{ivStrength(r.iv)}</td>
-                    <td>
+                    <td className="button-row">
                       {detail && (
-                        <button type="button" onClick={() => setExpanded(isExpanded ? null : r.variable)}>
-                          {isExpanded ? "Hide" : "View bins"}
-                        </button>
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setExpanded(isExpanded ? null : r.variable);
+                              setEditing(null);
+                            }}
+                          >
+                            {isExpanded ? "Hide" : "View bins"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditing(isEditing ? null : r.variable);
+                              setExpanded(null);
+                            }}
+                          >
+                            {isEditing ? "Cancel edit" : "Edit bins"}
+                          </button>
+                        </>
                       )}
                     </td>
                   </tr>
@@ -129,6 +156,18 @@ export default function BinningPanel({ project, onSaved }: Props) {
                             ))}
                           </tbody>
                         </table>
+                      </td>
+                    </tr>
+                  )}
+                  {isEditing && detail && (
+                    <tr>
+                      <td colSpan={6}>
+                        <BinEditor
+                          projectId={project.id}
+                          detail={detail}
+                          onSaved={handleEditSaved}
+                          onCancel={() => setEditing(null)}
+                        />
                       </td>
                     </tr>
                   )}
