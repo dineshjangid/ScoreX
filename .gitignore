@@ -1,0 +1,18 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+build/
+dist/
+
+# Node
+node_modules/
+web/dist/
+
+# Local data / db
+*.db
+.credittool/
+
+# Editor
+.DS_Store

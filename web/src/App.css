@@ -1,0 +1,130 @@
+.page {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 24px 20px 60px;
+  text-align: left;
+}
+
+.card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px 20px;
+  margin-bottom: 16px;
+  background: var(--code-bg);
+}
+
+.card label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 12px;
+  font-size: 14px;
+}
+
+.card input,
+.card select {
+  font: inherit;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text-h);
+}
+
+button {
+  font: inherit;
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: 1px solid var(--accent-border);
+  background: var(--accent-bg);
+  color: var(--text-h);
+  cursor: pointer;
+}
+
+button.danger {
+  border-color: #e5484d80;
+  background: #e5484d1a;
+}
+
+.project-list {
+  list-style: none;
+  padding: 0;
+}
+
+.project-list .card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.project-list a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  color: var(--text-h);
+  text-decoration: none;
+}
+
+.badge {
+  display: inline-block;
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--accent-bg);
+  color: var(--accent);
+  border: 1px solid var(--accent-border);
+}
+
+.muted {
+  color: var(--text);
+  font-size: 13px;
+}
+
+.error {
+  color: #e5484d;
+}
+
+.step-list {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.step {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.step.complete {
+  border-color: var(--accent-border);
+  background: var(--accent-bg);
+}
+
+.step-index {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--border);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+}
+
+.step-label {
+  flex: 1;
+  font-weight: 500;
+}
+
+.step-status {
+  font-size: 13px;
+  color: var(--text);
+  text-transform: capitalize;
+}

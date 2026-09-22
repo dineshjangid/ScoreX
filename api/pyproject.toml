@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "credittool-api"
+version = "0.1.0"
+description = "FastAPI backend for the Credit Risk Scorecard Development Tool"
+requires-python = ">=3.11"
+dependencies = [
+    "credittool-engine",
+    "fastapi>=0.111",
+    "uvicorn[standard]>=0.29",
+    "sqlalchemy>=2.0",
+    "python-multipart>=0.0.9",
+    "pydantic>=2.7",
+]
+
+[tool.setuptools.packages.find]
+include = ["app*"]
