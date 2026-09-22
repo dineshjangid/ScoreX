@@ -5,11 +5,12 @@ import uuid
 from pathlib import Path
 
 import pandas as pd
-from fastapi import APIRouter, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, UploadFile
 
 from credittool_engine.data import SUPPORTED_EXTENSIONS, load_dataframe, profile_dataframe
 from credittool_engine.project import StepName, StepStatus
 
+from ..auth import AuthUser, get_current_user
 from ..db import UPLOADS_DIR, get_session
 from ..repo import get_record_or_404, invalidate_downstream, record_to_project, save_project
 from ..schemas import DataPreview, ProjectDetail
@@ -28,7 +29,7 @@ def _clean_records(df: pd.DataFrame) -> list[dict]:
 
 
 @router.post("", response_model=ProjectDetail)
-async def upload_data(project_id: str, file: UploadFile) -> ProjectDetail:
+async def upload_data(project_id: str, file: UploadFile, current_user: AuthUser = Depends(get_current_user)) -> ProjectDetail:
     suffix = Path(file.filename or "").suffix.lower()
     if suffix not in SUPPORTED_EXTENSIONS:
         raise HTTPException(
@@ -66,7 +67,7 @@ async def upload_data(project_id: str, file: UploadFile) -> ProjectDetail:
             os.remove(record.data_path)
         record.data_path = str(dest_path)
 
-        save_project(session, record, project)
+        save_project(session, record, project, current_user, "data.upload", f"Uploaded '{file.filename}' ({profile['n_rows']} rows)")
         return ProjectDetail(**project.to_dict())
 
 

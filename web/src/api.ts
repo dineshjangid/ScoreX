@@ -1,7 +1,27 @@
-export const API_BASE = "http://127.0.0.1:8000/api";
+// Must share a host (not just resolve to the same machine) with the
+// frontend origin for the session cookie to be sent: browsers treat
+// "localhost" and "127.0.0.1" as different sites for SameSite=Lax
+// cookie purposes, even though both point at loopback.
+export const API_BASE = "http://localhost:8000/api";
 
 export type ScorecardType = "application" | "behavioural" | "decision_tree";
 export type StepStatus = "not_started" | "in_progress" | "complete";
+export type UserRole = "analyst" | "validator" | "approver";
+
+export interface AuthUser {
+  id: string;
+  username: string;
+  role: UserRole;
+}
+
+export interface AuditLogEntry {
+  id: string;
+  username: string;
+  role: string;
+  action: string;
+  detail: string | null;
+  created_at: string;
+}
 
 export interface ProjectSummary {
   id: string;
@@ -462,6 +482,7 @@ export const STEP_LABELS: Record<string, string> = {
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     headers: { "Content-Type": "application/json" },
+    credentials: "include",
     ...options,
   });
   if (!res.ok) {
@@ -485,6 +506,7 @@ export const api = {
     formData.append("file", file);
     const res = await fetch(`${API_BASE}/projects/${projectId}/data`, {
       method: "POST",
+      credentials: "include",
       body: formData,
     });
     if (!res.ok) throw new Error(`API error ${res.status}: ${await res.text()}`);
@@ -559,6 +581,7 @@ export const api = {
     formData.append("file", file);
     const res = await fetch(`${API_BASE}/projects/${projectId}/batch_scoring?top_n=${topN}`, {
       method: "POST",
+      credentials: "include",
       body: formData,
     });
     if (!res.ok) throw new Error(`API error ${res.status}: ${await res.text()}`);
@@ -594,4 +617,11 @@ export const api = {
       body: JSON.stringify({ policy }),
     }),
   getTreeRules: (projectId: string) => request<LeafRuleRow[]>(`/projects/${projectId}/decision_tree/rules`),
+  getMe: () => request<AuthUser>("/auth/me"),
+  login: (username: string, password: string) =>
+    request<AuthUser>("/auth/login", { method: "POST", body: JSON.stringify({ username, password }) }),
+  register: (username: string, password: string, role: UserRole) =>
+    request<AuthUser>("/auth/register", { method: "POST", body: JSON.stringify({ username, password, role }) }),
+  logout: () => request<{ status: string }>("/auth/logout", { method: "POST" }),
+  getAuditLog: (projectId: string) => request<AuditLogEntry[]>(`/projects/${projectId}/audit`),
 };

@@ -4,7 +4,7 @@ import io
 import os
 
 import pandas as pd
-from fastapi import APIRouter, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException, Response
 
 from credittool_engine.data import load_dataframe
 from credittool_engine.decision_tree import (
@@ -19,8 +19,9 @@ from credittool_engine.decision_tree import set_policy as engine_set_policy
 from credittool_engine.decision_tree import split_node_categorical, split_node_numeric
 from credittool_engine.project import StepName, StepStatus
 
+from ..auth import AuthUser, get_current_user
 from ..db import ProjectRecord, get_session
-from ..repo import get_record_or_404, invalidate_downstream, record_to_project, save_project
+from ..repo import get_record_or_404, invalidate_downstream, log_audit, record_to_project, save_project
 from ..schemas import DecisionTreeConfigIn, DecisionTreeOut, LeafRuleOut, NodePolicyIn, NodeSplitIn
 
 router = APIRouter(prefix="/api/projects/{project_id}/decision_tree", tags=["decision_tree"])
@@ -44,7 +45,7 @@ def _tree_from_artifact(tree_artifact: dict) -> DecisionTree:
 
 
 @router.post("", response_model=DecisionTreeOut)
-def build(project_id: str, body: DecisionTreeConfigIn) -> DecisionTreeOut:
+def build(project_id: str, body: DecisionTreeConfigIn, current_user: AuthUser = Depends(get_current_user)) -> DecisionTreeOut:
     with get_session() as session:
         record = get_record_or_404(session, project_id)
         project = record_to_project(record)
@@ -77,13 +78,18 @@ def build(project_id: str, body: DecisionTreeConfigIn) -> DecisionTreeOut:
         project.set_artifact(StepName.DECISION_TREE, {"config": body.model_dump(), **tree.to_dict()})
         project.mark_step(StepName.DECISION_TREE, StepStatus.COMPLETE)
         invalidate_downstream(project, record, StepName.DECISION_TREE)
-        save_project(session, record, project)
+        save_project(
+            session, record, project, current_user, "decision_tree.build",
+            f"{len(candidate_vars)} variables, max_depth={body.max_depth}",
+        )
 
     return DecisionTreeOut(**tree.to_dict())
 
 
 @router.put("/nodes/{node_id}/split", response_model=DecisionTreeOut)
-def split(project_id: str, node_id: str, body: NodeSplitIn) -> DecisionTreeOut:
+def split(
+    project_id: str, node_id: str, body: NodeSplitIn, current_user: AuthUser = Depends(get_current_user)
+) -> DecisionTreeOut:
     with get_session() as session:
         record = get_record_or_404(session, project_id)
         project = record_to_project(record)
@@ -112,13 +118,13 @@ def split(project_id: str, node_id: str, body: NodeSplitIn) -> DecisionTreeOut:
 
         project.set_artifact(StepName.DECISION_TREE, {"config": tree_artifact.get("config", {}), **tree.to_dict()})
         invalidate_downstream(project, record, StepName.DECISION_TREE)
-        save_project(session, record, project)
+        save_project(session, record, project, current_user, "decision_tree.split", f"Split node {node_id} on {body.variable}")
 
     return DecisionTreeOut(**tree.to_dict())
 
 
 @router.post("/nodes/{node_id}/prune", response_model=DecisionTreeOut)
-def prune(project_id: str, node_id: str) -> DecisionTreeOut:
+def prune(project_id: str, node_id: str, current_user: AuthUser = Depends(get_current_user)) -> DecisionTreeOut:
     with get_session() as session:
         record = get_record_or_404(session, project_id)
         project = record_to_project(record)
@@ -133,13 +139,15 @@ def prune(project_id: str, node_id: str) -> DecisionTreeOut:
 
         project.set_artifact(StepName.DECISION_TREE, {"config": tree_artifact.get("config", {}), **tree.to_dict()})
         invalidate_downstream(project, record, StepName.DECISION_TREE)
-        save_project(session, record, project)
+        save_project(session, record, project, current_user, "decision_tree.prune", f"Pruned node {node_id}")
 
     return DecisionTreeOut(**tree.to_dict())
 
 
 @router.put("/nodes/{node_id}/policy", response_model=DecisionTreeOut)
-def set_node_policy(project_id: str, node_id: str, body: NodePolicyIn) -> DecisionTreeOut:
+def set_node_policy(
+    project_id: str, node_id: str, body: NodePolicyIn, current_user: AuthUser = Depends(get_current_user)
+) -> DecisionTreeOut:
     with get_session() as session:
         record = get_record_or_404(session, project_id)
         project = record_to_project(record)
@@ -158,7 +166,7 @@ def set_node_policy(project_id: str, node_id: str, body: NodePolicyIn) -> Decisi
         # Assigning a policy doesn't change the tree's structure/stats, so
         # nothing downstream needs invalidating.
         project.set_artifact(StepName.DECISION_TREE, {"config": tree_artifact.get("config", {}), **tree.to_dict()})
-        save_project(session, record, project)
+        save_project(session, record, project, current_user, "decision_tree.policy", f"Node {node_id} -> policy '{body.policy}'")
 
     return DecisionTreeOut(**tree.to_dict())
 
@@ -176,7 +184,9 @@ def rules(project_id: str) -> list[LeafRuleOut]:
 
 
 @router.get("/export")
-def export(project_id: str, format: str = "python", table: str = "applicants") -> Response:
+def export(
+    project_id: str, format: str = "python", table: str = "applicants", current_user: AuthUser = Depends(get_current_user)
+) -> Response:
     with get_session() as session:
         record = get_record_or_404(session, project_id)
         project = record_to_project(record)
@@ -184,6 +194,8 @@ def export(project_id: str, format: str = "python", table: str = "applicants") -
         if not tree_artifact:
             raise HTTPException(status_code=400, detail="Build a decision tree first")
         tree_dict = {"root_id": tree_artifact["root_id"], "nodes": tree_artifact["nodes"]}
+        log_audit(session, current_user, project_id, "decision_tree.export", f"Downloaded {format} export")
+        session.commit()
 
     if format == "python":
         content = generate_tree_python(tree_dict)

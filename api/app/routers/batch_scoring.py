@@ -6,15 +6,16 @@ import uuid
 from pathlib import Path
 
 import pandas as pd
-from fastapi import APIRouter, HTTPException, Response, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, Response, UploadFile
 
 from credittool_engine.data import SUPPORTED_EXTENSIONS, load_dataframe
 from credittool_engine.project import StepName
 from credittool_engine.reason_codes import compute_reason_codes, compute_variable_contributions
 from credittool_engine.scoring import compute_scores
 
+from ..auth import AuthUser, get_current_user
 from ..db import UPLOADS_DIR, get_session
-from ..repo import get_record_or_404, record_to_project, save_project
+from ..repo import get_record_or_404, log_audit, record_to_project, save_project
 from ..schemas import BatchScoringOut, ScoreDistribution
 
 router = APIRouter(prefix="/api/projects/{project_id}/batch_scoring", tags=["batch_scoring"])
@@ -37,7 +38,9 @@ def _check_required_columns(df: pd.DataFrame, fitted_params: dict) -> None:
 
 
 @router.post("", response_model=BatchScoringOut)
-async def upload_batch(project_id: str, file: UploadFile, top_n: int = 3) -> BatchScoringOut:
+async def upload_batch(
+    project_id: str, file: UploadFile, top_n: int = 3, current_user: AuthUser = Depends(get_current_user)
+) -> BatchScoringOut:
     suffix = Path(file.filename or "").suffix.lower()
     if suffix not in SUPPORTED_EXTENSIONS:
         raise HTTPException(
@@ -104,13 +107,16 @@ async def upload_batch(project_id: str, file: UploadFile, top_n: int = 3) -> Bat
         record.batch_path = str(dest_path)
 
         project.set_extra("batch_scoring", result.model_dump())
-        save_project(session, record, project)
+        save_project(
+            session, record, project, current_user, "batch_scoring.upload",
+            f"Uploaded '{file.filename}' ({len(df)} rows)",
+        )
 
     return result
 
 
 @router.get("/export")
-def export_batch(project_id: str, top_n: int = 3) -> Response:
+def export_batch(project_id: str, top_n: int = 3, current_user: AuthUser = Depends(get_current_user)) -> Response:
     with get_session() as session:
         record = get_record_or_404(session, project_id)
         project = record_to_project(record)
@@ -129,6 +135,9 @@ def export_batch(project_id: str, top_n: int = 3) -> Response:
         out = df.copy()
         out["score"] = scores
         out = pd.concat([out, reasons], axis=1)
+
+        log_audit(session, current_user, project_id, "batch_scoring.export", f"Downloaded batch-scored CSV ({len(df)} rows)")
+        session.commit()
 
         buffer = io.StringIO()
         out.to_csv(buffer, index=False)

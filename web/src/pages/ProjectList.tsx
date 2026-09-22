@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { api } from "../api";
 import type { ProjectSummary, ScorecardType } from "../api";
+import UserMenu from "../components/UserMenu";
 
 const SCORECARD_TYPES: { value: ScorecardType; label: string; description: string }[] = [
   { value: "application", label: "Application", description: "Score new applicants at origination" },
@@ -43,9 +44,12 @@ export default function ProjectList() {
 
   return (
     <div className="home-shell">
-      <header className="home-header">
-        <h1 className="page-title">ScoreX</h1>
-        <p className="muted">Build, validate, and export credit risk scorecards.</p>
+      <header className="home-header home-header-row">
+        <div>
+          <h1 className="page-title">ScoreX</h1>
+          <p className="muted">Build, validate, and export credit risk scorecards.</p>
+        </div>
+        <UserMenu />
       </header>
 
       <section className="card home-module">

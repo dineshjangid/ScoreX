@@ -3,12 +3,13 @@ from __future__ import annotations
 import os
 
 import pandas as pd
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
 from credittool_engine.data import load_dataframe
 from credittool_engine.project import StepName, StepStatus
 from credittool_engine.selection import select_variables
 
+from ..auth import AuthUser, get_current_user
 from ..db import get_session
 from ..repo import build_woe_frame, get_record_or_404, invalidate_downstream, record_to_project, save_project
 from ..schemas import SelectionConfigIn, SelectionResultOut
@@ -17,7 +18,7 @@ router = APIRouter(prefix="/api/projects/{project_id}/selection", tags=["selecti
 
 
 @router.post("", response_model=SelectionResultOut)
-def run_selection(project_id: str, body: SelectionConfigIn) -> SelectionResultOut:
+def run_selection(project_id: str, body: SelectionConfigIn, current_user: AuthUser = Depends(get_current_user)) -> SelectionResultOut:
     with get_session() as session:
         record = get_record_or_404(session, project_id)
         project = record_to_project(record)
@@ -49,6 +50,8 @@ def run_selection(project_id: str, body: SelectionConfigIn) -> SelectionResultOu
         project.set_artifact(StepName.VARIABLE_SELECTION, {"config": body.model_dump(), **result.to_dict()})
         project.mark_step(StepName.VARIABLE_SELECTION, StepStatus.COMPLETE)
         invalidate_downstream(project, record, StepName.VARIABLE_SELECTION)
-        save_project(session, record, project)
+        save_project(
+            session, record, project, current_user, "selection.run", f"{len(result.selected)} variables selected"
+        )
 
     return SelectionResultOut(**result.to_dict())

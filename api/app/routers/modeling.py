@@ -3,12 +3,13 @@ from __future__ import annotations
 import os
 
 import pandas as pd
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
 from credittool_engine.data import load_dataframe
 from credittool_engine.modeling import fit_logistic_regression
 from credittool_engine.project import StepName, StepStatus
 
+from ..auth import AuthUser, get_current_user
 from ..db import get_session
 from ..repo import build_woe_frame, get_record_or_404, invalidate_downstream, record_to_project, save_project
 from ..schemas import ModelingConfigIn, ModelOut
@@ -17,7 +18,7 @@ router = APIRouter(prefix="/api/projects/{project_id}/modeling", tags=["modeling
 
 
 @router.post("", response_model=ModelOut)
-def run_modeling(project_id: str, body: ModelingConfigIn) -> ModelOut:
+def run_modeling(project_id: str, body: ModelingConfigIn, current_user: AuthUser = Depends(get_current_user)) -> ModelOut:
     with get_session() as session:
         record = get_record_or_404(session, project_id)
         project = record_to_project(record)
@@ -48,6 +49,6 @@ def run_modeling(project_id: str, body: ModelingConfigIn) -> ModelOut:
         project.set_artifact(StepName.MODELING, model.to_dict())
         project.mark_step(StepName.MODELING, StepStatus.COMPLETE)
         invalidate_downstream(project, record, StepName.MODELING)
-        save_project(session, record, project)
+        save_project(session, record, project, current_user, "modeling.run", f"Fit logistic model on {variables}")
 
     return ModelOut(**model.to_dict())

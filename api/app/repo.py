@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import uuid
 
 import pandas as pd
 from fastapi import HTTPException
@@ -10,7 +11,8 @@ from sqlalchemy.orm import Session
 from credittool_engine.binning import apply_binning
 from credittool_engine.project import Project, StepName, StepStatus, steps_for
 
-from .db import ProjectRecord
+from .auth import AuthUser
+from .db import AuditLogRecord, ProjectRecord, now_iso
 
 
 def record_to_project(record: ProjectRecord) -> Project:
@@ -39,10 +41,36 @@ def get_record_or_404(session: Session, project_id: str) -> ProjectRecord:
     return record
 
 
-def save_project(session: Session, record: ProjectRecord, project: Project) -> None:
+def log_audit(session: Session, actor: AuthUser, project_id: str | None, action: str, detail: str = "") -> None:
+    """Record one audit-trail entry. Doesn't commit — callers that aren't
+    already inside a save_project() call should commit afterward."""
+    session.add(
+        AuditLogRecord(
+            id=str(uuid.uuid4()),
+            user_id=actor.id,
+            username=actor.username,
+            role=actor.role,
+            project_id=project_id,
+            action=action,
+            detail=detail,
+            created_at=now_iso(),
+        )
+    )
+
+
+def save_project(
+    session: Session,
+    record: ProjectRecord,
+    project: Project,
+    actor: AuthUser | None = None,
+    action: str | None = None,
+    detail: str = "",
+) -> None:
     record.payload = json.dumps(project.to_dict())
     record.updated_at = project.updated_at.isoformat()
     session.add(record)
+    if actor and action:
+        log_audit(session, actor, record.id, action, detail)
     session.commit()
 
 

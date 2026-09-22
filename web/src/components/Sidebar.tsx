@@ -1,6 +1,7 @@
 import { NavLink } from "react-router-dom";
 import { STEP_LABELS, stepOrderFor } from "../api";
 import type { ProjectDetail, StepStatus } from "../api";
+import UserMenu from "./UserMenu";
 
 const STATUS_ICON: Record<StepStatus, string> = {
   not_started: "",
@@ -50,10 +51,10 @@ export default function Sidebar({ project }: { project: ProjectDetail }) {
         })}
       </ol>
 
-      {showScorecardTools && (
-        <>
-          <div className="sidebar-section-label">Tools</div>
-          <ol className="sidebar-list">
+      <div className="sidebar-section-label">Tools</div>
+      <ol className="sidebar-list">
+        {showScorecardTools && (
+          <>
             <li>
               <NavLink
                 to={`/projects/${project.id}/batch-scoring`}
@@ -70,9 +71,22 @@ export default function Sidebar({ project }: { project: ProjectDetail }) {
                 <span className="sidebar-label">Model Versions</span>
               </NavLink>
             </li>
-          </ol>
-        </>
-      )}
+          </>
+        )}
+        <li>
+          <NavLink
+            to={`/projects/${project.id}/audit-trail`}
+            className={({ isActive }) => `sidebar-item ${isActive ? "active" : ""}`}
+          >
+            <span className="sidebar-label">Audit Trail</span>
+          </NavLink>
+        </li>
+      </ol>
+
+      <div className="sidebar-spacer" />
+      <div className="sidebar-footer">
+        <UserMenu />
+      </div>
     </nav>
   );
 }

@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import pandas as pd
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
 from credittool_engine.data import load_dataframe
 from credittool_engine.modeling import fit_ml_benchmark
 from credittool_engine.project import StepName
 
+from ..auth import AuthUser, get_current_user
 from ..db import get_session
 from ..repo import get_record_or_404, record_to_project, save_project
 from ..schemas import MLBenchmarkConfigIn, MLBenchmarkOut
@@ -15,7 +16,7 @@ router = APIRouter(prefix="/api/projects/{project_id}/ml_benchmark", tags=["ml_b
 
 
 @router.post("", response_model=MLBenchmarkOut)
-def run_ml_benchmark(project_id: str, body: MLBenchmarkConfigIn) -> MLBenchmarkOut:
+def run_ml_benchmark(project_id: str, body: MLBenchmarkConfigIn, current_user: AuthUser = Depends(get_current_user)) -> MLBenchmarkOut:
     with get_session() as session:
         record = get_record_or_404(session, project_id)
         project = record_to_project(record)
@@ -47,6 +48,9 @@ def run_ml_benchmark(project_id: str, body: MLBenchmarkConfigIn) -> MLBenchmarkO
 
         response = MLBenchmarkOut(**result.to_dict())
         project.set_extra("ml_benchmark", {"config": body.model_dump(), **response.model_dump()})
-        save_project(session, record, project)
+        save_project(
+            session, record, project, current_user, "ml_benchmark.run",
+            f"XGBoost on {variables}, test AUC={response.test_auc}",
+        )
 
     return response

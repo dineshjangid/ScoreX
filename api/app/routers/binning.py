@@ -3,12 +3,13 @@ from __future__ import annotations
 import os
 
 import pandas as pd
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
 from credittool_engine.binning import apply_manual_categorical_bins, apply_manual_numeric_bins, bin_variable
 from credittool_engine.data import load_dataframe
 from credittool_engine.project import StepName, StepStatus
 
+from ..auth import AuthUser, get_current_user
 from ..db import get_session
 from ..repo import get_record_or_404, invalidate_downstream, record_to_project, save_project
 from ..schemas import BinningConfigIn, BinningSummaryItem, ManualBinningIn
@@ -17,7 +18,7 @@ router = APIRouter(prefix="/api/projects/{project_id}/binning", tags=["binning"]
 
 
 @router.post("", response_model=list[BinningSummaryItem])
-def run_binning(project_id: str, body: BinningConfigIn) -> list[BinningSummaryItem]:
+def run_binning(project_id: str, body: BinningConfigIn, current_user: AuthUser = Depends(get_current_user)) -> list[BinningSummaryItem]:
     with get_session() as session:
         record = get_record_or_404(session, project_id)
         project = record_to_project(record)
@@ -69,13 +70,15 @@ def run_binning(project_id: str, body: BinningConfigIn) -> list[BinningSummaryIt
         )
         project.mark_step(StepName.BINNING, StepStatus.COMPLETE)
         invalidate_downstream(project, record, StepName.BINNING)
-        save_project(session, record, project)
+        save_project(session, record, project, current_user, "binning.run", f"{len(candidate_vars)} variables binned")
 
     return results
 
 
 @router.put("/{variable}", response_model=BinningSummaryItem)
-def edit_variable_binning(project_id: str, variable: str, body: ManualBinningIn) -> BinningSummaryItem:
+def edit_variable_binning(
+    project_id: str, variable: str, body: ManualBinningIn, current_user: AuthUser = Depends(get_current_user)
+) -> BinningSummaryItem:
     with get_session() as session:
         record = get_record_or_404(session, project_id)
         project = record_to_project(record)
@@ -108,6 +111,6 @@ def edit_variable_binning(project_id: str, variable: str, body: ManualBinningIn)
         # The edited variable's WOE/IV changed, so anything built from it
         # (selection onward) is stale.
         invalidate_downstream(project, record, StepName.BINNING)
-        save_project(session, record, project)
+        save_project(session, record, project, current_user, "binning.edit", f"Manually rebinned '{variable}'")
 
     return BinningSummaryItem(variable=variable, kind=binning.kind, iv=binning.iv, n_bins=len(binning.bins))

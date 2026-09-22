@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import pandas as pd
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
 from credittool_engine.binning import assign_bin_labels
 from credittool_engine.data import load_dataframe
@@ -17,6 +17,7 @@ from credittool_engine.validation import (
     stability_index,
 )
 
+from ..auth import AuthUser, get_current_user
 from ..db import get_session
 from ..repo import get_record_or_404, invalidate_downstream, record_to_project, save_project
 from ..schemas import SampleMetrics, StabilityResult, ValidationOut
@@ -42,7 +43,7 @@ def _sample_metrics(bad_flag: pd.Series, score: pd.Series) -> SampleMetrics | No
 
 
 @router.post("", response_model=ValidationOut)
-def run_validation(project_id: str) -> ValidationOut:
+def run_validation(project_id: str, current_user: AuthUser = Depends(get_current_user)) -> ValidationOut:
     with get_session() as session:
         record = get_record_or_404(session, project_id)
         project = record_to_project(record)
@@ -113,6 +114,9 @@ def run_validation(project_id: str) -> ValidationOut:
         project.set_artifact(StepName.VALIDATION, result.model_dump())
         project.mark_step(StepName.VALIDATION, StepStatus.COMPLETE)
         invalidate_downstream(project, record, StepName.VALIDATION)
-        save_project(session, record, project)
+        save_project(
+            session, record, project, current_user, "validation.run",
+            f"train KS={train_metrics.ks}, AUC={train_metrics.auc}",
+        )
 
     return result

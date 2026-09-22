@@ -3,13 +3,14 @@ from __future__ import annotations
 import json
 import uuid
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, select
 
 from credittool_engine.project import StepName
 
+from ..auth import AuthUser, get_current_user
 from ..db import ModelVersionRecord, get_session, now_iso
-from ..repo import get_record_or_404, record_to_project
+from ..repo import get_record_or_404, log_audit, record_to_project
 from ..schemas import VersionCreateIn, VersionDetail, VersionSummary
 
 router = APIRouter(prefix="/api/projects/{project_id}/versions", tags=["versions"])
@@ -54,7 +55,7 @@ def _get_version_or_404(session, project_id: str, version_id: str) -> ModelVersi
 
 
 @router.post("", response_model=VersionSummary)
-def create_version(project_id: str, body: VersionCreateIn) -> VersionSummary:
+def create_version(project_id: str, body: VersionCreateIn, current_user: AuthUser = Depends(get_current_user)) -> VersionSummary:
     with get_session() as session:
         record = get_record_or_404(session, project_id)
         project = record_to_project(record)
@@ -82,6 +83,7 @@ def create_version(project_id: str, body: VersionCreateIn) -> VersionSummary:
             snapshot=json.dumps(snapshot),
         )
         session.add(version)
+        log_audit(session, current_user, project_id, "version.create", f"Saved v{next_version} ({body.label or 'no label'})")
         session.commit()
 
         return _to_summary(version)
@@ -111,7 +113,7 @@ def get_version(project_id: str, version_id: str) -> VersionDetail:
 
 
 @router.post("/{version_id}/champion", response_model=VersionSummary)
-def set_champion(project_id: str, version_id: str) -> VersionSummary:
+def set_champion(project_id: str, version_id: str, current_user: AuthUser = Depends(get_current_user)) -> VersionSummary:
     with get_session() as session:
         target = _get_version_or_404(session, project_id, version_id)
         others = (
@@ -121,13 +123,15 @@ def set_champion(project_id: str, version_id: str) -> VersionSummary:
         )
         for v in others:
             v.is_champion = v.id == version_id
+        log_audit(session, current_user, project_id, "version.champion", f"Set v{target.version_number} as champion")
         session.commit()
         return _to_summary(target)
 
 
 @router.delete("/{version_id}", status_code=204)
-def delete_version(project_id: str, version_id: str) -> None:
+def delete_version(project_id: str, version_id: str, current_user: AuthUser = Depends(get_current_user)) -> None:
     with get_session() as session:
         version = _get_version_or_404(session, project_id, version_id)
+        log_audit(session, current_user, project_id, "version.delete", f"Deleted v{version.version_number}")
         session.delete(version)
         session.commit()

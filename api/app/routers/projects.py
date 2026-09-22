@@ -2,20 +2,21 @@ from __future__ import annotations
 
 import json
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from sqlalchemy import select
 
 from credittool_engine.project import Project
 
+from ..auth import AuthUser, get_current_user
 from ..db import ProjectRecord, get_session
-from ..repo import get_record_or_404, record_to_project
+from ..repo import get_record_or_404, log_audit, record_to_project
 from ..schemas import ProjectCreate, ProjectDetail, ProjectSummary
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
 
 @router.post("", response_model=ProjectDetail)
-def create_project(body: ProjectCreate) -> ProjectDetail:
+def create_project(body: ProjectCreate, current_user: AuthUser = Depends(get_current_user)) -> ProjectDetail:
     project = Project(name=body.name, scorecard_type=body.scorecard_type)
     record = ProjectRecord(
         id=project.id,
@@ -27,6 +28,7 @@ def create_project(body: ProjectCreate) -> ProjectDetail:
     )
     with get_session() as session:
         session.add(record)
+        log_audit(session, current_user, project.id, "project.create", f"Created project '{project.name}'")
         session.commit()
     return ProjectDetail(**project.to_dict())
 
@@ -56,8 +58,9 @@ def get_project(project_id: str) -> ProjectDetail:
 
 
 @router.delete("/{project_id}", status_code=204)
-def delete_project(project_id: str) -> None:
+def delete_project(project_id: str, current_user: AuthUser = Depends(get_current_user)) -> None:
     with get_session() as session:
         record = get_record_or_404(session, project_id)
+        log_audit(session, current_user, project_id, "project.delete", f"Deleted project '{record.name}'")
         session.delete(record)
         session.commit()

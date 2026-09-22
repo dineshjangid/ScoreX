@@ -1,5 +1,6 @@
 import { Route, Routes } from "react-router-dom";
 import "./App.css";
+import AuditTrailPage from "./pages/AuditTrailPage";
 import BatchScoringPage from "./pages/BatchScoringPage";
 import Overview from "./pages/Overview";
 import ProjectLayout from "./pages/ProjectLayout";
@@ -15,6 +16,7 @@ function App() {
         <Route index element={<Overview />} />
         <Route path="batch-scoring" element={<BatchScoringPage />} />
         <Route path="versions" element={<VersionsPage />} />
+        <Route path="audit-trail" element={<AuditTrailPage />} />
         <Route path=":step" element={<StepPage />} />
       </Route>
     </Routes>

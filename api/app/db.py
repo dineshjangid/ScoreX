@@ -1,7 +1,8 @@
-"""SQLite persistence for Project state (local, single-user for now).
-
-Swapping to Postgres for multi-user later means changing DATABASE_URL and
-adding auth/ownership columns here — the engine package is untouched.
+"""SQLite persistence for Project state, plus users/sessions/audit log
+for the shared-workspace multi-user model: every registered user can see
+and edit every project; role is an attribution label on audit entries,
+not an access restriction. Swapping to Postgres for a larger deployment
+later means changing DATABASE_URL — the engine package is untouched.
 """
 from __future__ import annotations
 
@@ -64,6 +65,43 @@ class ModelVersionRecord(Base):
     # JSON: {target_definition, sampling, binning, variable_selection,
     # modeling, scaling, validation, ml_benchmark} as they were when saved.
     snapshot = Column(Text, nullable=False)
+
+
+class UserRecord(Base):
+    __tablename__ = "users"
+
+    id = Column(String, primary_key=True)
+    username = Column(String, nullable=False, unique=True, index=True)
+    password_hash = Column(String, nullable=False)
+    role = Column(String, nullable=False)  # "analyst" | "validator" | "approver"
+    created_at = Column(String, nullable=False)
+
+
+class SessionRecord(Base):
+    __tablename__ = "sessions"
+
+    token = Column(String, primary_key=True)
+    user_id = Column(String, nullable=False, index=True)
+    created_at = Column(String, nullable=False)
+    expires_at = Column(String, nullable=False)
+
+
+class AuditLogRecord(Base):
+    """One row per meaningful action for governance/audit purposes.
+    Username/role are denormalized so history reads correctly even if a
+    user is later renamed or their role changes.
+    """
+
+    __tablename__ = "audit_log"
+
+    id = Column(String, primary_key=True)
+    user_id = Column(String, nullable=False)
+    username = Column(String, nullable=False)
+    role = Column(String, nullable=False)
+    project_id = Column(String, nullable=True, index=True)
+    action = Column(String, nullable=False)
+    detail = Column(String, nullable=True)
+    created_at = Column(String, nullable=False, index=True)
 
 
 def _add_missing_columns() -> None:

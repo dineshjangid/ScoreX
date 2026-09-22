@@ -364,3 +364,12 @@ class LeafRuleOut(BaseModel):
     n_bad: int
     bad_rate_pct: float
     policy: str | None
+
+
+class AuditLogOut(BaseModel):
+    id: str
+    username: str
+    role: str
+    action: str
+    detail: str | None
+    created_at: str

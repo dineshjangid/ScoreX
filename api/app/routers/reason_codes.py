@@ -3,15 +3,16 @@ from __future__ import annotations
 import io
 
 import pandas as pd
-from fastapi import APIRouter, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException, Response
 
 from credittool_engine.data import load_dataframe
 from credittool_engine.project import StepName, StepStatus
 from credittool_engine.reason_codes import compute_reason_codes, compute_variable_contributions
 from credittool_engine.scoring import compute_scores
 
+from ..auth import AuthUser, get_current_user
 from ..db import get_session
-from ..repo import get_record_or_404, invalidate_downstream, record_to_project, save_project
+from ..repo import get_record_or_404, invalidate_downstream, log_audit, record_to_project, save_project
 from ..schemas import ReasonCodesConfigIn, ReasonCodesOut
 
 router = APIRouter(prefix="/api/projects/{project_id}/reason_codes", tags=["reason_codes"])
@@ -27,7 +28,9 @@ def _load_scorecard_pieces(project):
 
 
 @router.post("", response_model=ReasonCodesOut)
-def run_reason_codes(project_id: str, body: ReasonCodesConfigIn) -> ReasonCodesOut:
+def run_reason_codes(
+    project_id: str, body: ReasonCodesConfigIn, current_user: AuthUser = Depends(get_current_user)
+) -> ReasonCodesOut:
     with get_session() as session:
         record = get_record_or_404(session, project_id)
         project = record_to_project(record)
@@ -53,13 +56,13 @@ def run_reason_codes(project_id: str, body: ReasonCodesConfigIn) -> ReasonCodesO
         project.set_artifact(StepName.REASON_CODES, {"config": body.model_dump(), **result.model_dump()})
         project.mark_step(StepName.REASON_CODES, StepStatus.COMPLETE)
         invalidate_downstream(project, record, StepName.REASON_CODES)
-        save_project(session, record, project)
+        save_project(session, record, project, current_user, "reason_codes.run", f"top_n={body.top_n}, n_scored={len(df)}")
 
     return result
 
 
 @router.get("/export")
-def export_reason_codes(project_id: str, top_n: int = 3) -> Response:
+def export_reason_codes(project_id: str, top_n: int = 3, current_user: AuthUser = Depends(get_current_user)) -> Response:
     with get_session() as session:
         record = get_record_or_404(session, project_id)
         project = record_to_project(record)
@@ -73,6 +76,9 @@ def export_reason_codes(project_id: str, top_n: int = 3) -> Response:
         out = df.copy()
         out["score"] = scores
         out = pd.concat([out, reasons], axis=1)
+
+        log_audit(session, current_user, project_id, "reason_codes.export", f"Downloaded scored CSV ({len(df)} rows)")
+        session.commit()
 
         buffer = io.StringIO()
         out.to_csv(buffer, index=False)
