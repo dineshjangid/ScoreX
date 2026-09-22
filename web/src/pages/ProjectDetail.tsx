@@ -6,6 +6,7 @@ import BinningPanel from "../components/BinningPanel";
 import DataIngestionPanel from "../components/DataIngestionPanel";
 import ModelingPanel from "../components/ModelingPanel";
 import SamplingPanel from "../components/SamplingPanel";
+import ScalingPanel from "../components/ScalingPanel";
 import SelectionPanel from "../components/SelectionPanel";
 import TargetDefinitionPanel from "../components/TargetDefinitionPanel";
 
@@ -18,6 +19,7 @@ const IMPLEMENTED_STEPS = new Set([
   "binning",
   "variable_selection",
   "modeling",
+  "scaling",
 ]);
 
 export default function ProjectDetail() {
@@ -55,6 +57,8 @@ export default function ProjectDetail() {
         return <SelectionPanel project={project} onSaved={setProject} />;
       case "modeling":
         return <ModelingPanel project={project} onSaved={setProject} />;
+      case "scaling":
+        return <ScalingPanel project={project} onSaved={setProject} />;
       default:
         return null;
     }

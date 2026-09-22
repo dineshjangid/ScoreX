@@ -138,3 +138,41 @@ class ModelOut(BaseModel):
     pseudo_r2: float
     aic: float
     fitted_params: dict[str, float]
+
+
+class ScalingConfigIn(BaseModel):
+    pdo: float = 20.0
+    base_score: float = 600.0
+    base_odds: float = 50.0
+
+
+class BinPointsOut(BaseModel):
+    label: str
+    woe: float
+    points: int
+
+
+class VariablePointsOut(BaseModel):
+    variable: str
+    coefficient: float
+    bins: list[BinPointsOut]
+
+
+class ScoreDistribution(BaseModel):
+    mean: float
+    std: float
+    min: float
+    p25: float
+    median: float
+    p75: float
+    max: float
+
+
+class ScorecardOut(BaseModel):
+    factor: float
+    offset: float
+    base_points: int
+    variables: list[VariablePointsOut]
+    min_score: int
+    max_score: int
+    train_score_distribution: ScoreDistribution

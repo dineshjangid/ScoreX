@@ -175,6 +175,48 @@ export interface ModelArtifact {
   fitted_params: Record<string, number>;
 }
 
+export interface ScalingConfigInput {
+  pdo: number;
+  base_score: number;
+  base_odds: number;
+}
+
+export interface BinPointsRow {
+  label: string;
+  woe: number;
+  points: number;
+}
+
+export interface VariablePoints {
+  variable: string;
+  coefficient: number;
+  bins: BinPointsRow[];
+}
+
+export interface ScoreDistribution {
+  mean: number;
+  std: number;
+  min: number;
+  p25: number;
+  median: number;
+  p75: number;
+  max: number;
+}
+
+export interface Scorecard {
+  factor: number;
+  offset: number;
+  base_points: number;
+  variables: VariablePoints[];
+  min_score: number;
+  max_score: number;
+  train_score_distribution: ScoreDistribution;
+}
+
+export interface ScalingArtifact extends Scorecard {
+  config: ScalingConfigInput;
+}
+
 export interface ProjectDetail extends ProjectSummary {
   step_status: Record<string, StepStatus>;
   artifacts: Record<string, unknown> & {
@@ -184,6 +226,7 @@ export interface ProjectDetail extends ProjectSummary {
     binning?: BinningArtifact;
     variable_selection?: SelectionArtifact;
     modeling?: ModelArtifact;
+    scaling?: ScalingArtifact;
   };
 }
 
@@ -273,6 +316,11 @@ export const api = {
     }),
   runModeling: (projectId: string, body: ModelingConfigInput) =>
     request<ModelArtifact>(`/projects/${projectId}/modeling`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  runScaling: (projectId: string, body: ScalingConfigInput) =>
+    request<Scorecard>(`/projects/${projectId}/scaling`, {
       method: "POST",
       body: JSON.stringify(body),
     }),
