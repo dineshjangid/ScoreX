@@ -226,6 +226,12 @@ class RocPoint(BaseModel):
     tpr: float
 
 
+class HistogramBin(BaseModel):
+    bin_start: float
+    bin_end: float
+    count: int
+
+
 class MLBenchmarkConfigIn(BaseModel):
     variables: list[str] | None = None
     n_estimators: int = 100
@@ -271,6 +277,7 @@ class ValidationOut(BaseModel):
     oot: SampleMetrics | None
     roc_train: list[RocPoint]
     decile_table_train: list[DecileRow]
+    score_histogram_train: list[HistogramBin]
     psi_test_vs_train: StabilityResult
     psi_oot_vs_train: StabilityResult | None
     csi_test_vs_train: dict[str, StabilityResult]

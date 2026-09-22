@@ -13,6 +13,7 @@ from credittool_engine.validation import (
     decile_table,
     population_stability_index,
     roc_curve_points,
+    score_histogram,
     stability_index,
 )
 
@@ -102,6 +103,7 @@ def run_validation(project_id: str) -> ValidationOut:
             oot=oot_metrics,
             roc_train=roc_curve_points(train_bad, train_score),
             decile_table_train=decile_table(train_bad, train_score),
+            score_histogram_train=score_histogram(train_score),
             psi_test_vs_train=psi_test,
             psi_oot_vs_train=psi_oot,
             csi_test_vs_train=csi_test,

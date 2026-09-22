@@ -4,6 +4,7 @@ from .metrics import (
     decile_table,
     population_stability_index,
     roc_curve_points,
+    score_histogram,
     stability_index,
 )
 
@@ -12,6 +13,7 @@ __all__ = [
     "compute_auc_gini",
     "roc_curve_points",
     "decile_table",
+    "score_histogram",
     "stability_index",
     "population_stability_index",
 ]

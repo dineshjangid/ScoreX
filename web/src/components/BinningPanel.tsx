@@ -1,6 +1,7 @@
 import { Fragment, useState } from "react";
 import { api } from "../api";
 import type { BinningSummaryItem, ProjectDetail } from "../api";
+import BarChart from "./BarChart";
 import BinEditor from "./BinEditor";
 
 interface Props {
@@ -81,6 +82,18 @@ export default function BinningPanel({ project, onSaved }: Props) {
         </button>
       </div>
 
+      {results && results.length > 0 && (
+        <>
+          <p className="muted">IV ranking</p>
+          <BarChart
+            data={results.map((r) => ({ label: r.variable, value: r.iv }))}
+            positiveColor="var(--accent)"
+            negativeColor="var(--accent)"
+            formatValue={(v) => v.toFixed(4)}
+          />
+        </>
+      )}
+
       {results && (
         <table className="profile-table">
           <thead>
@@ -156,6 +169,8 @@ export default function BinningPanel({ project, onSaved }: Props) {
                             ))}
                           </tbody>
                         </table>
+                        <p className="muted">WOE per bin</p>
+                        <BarChart data={detail.bins.map((b) => ({ label: b.label, value: b.woe }))} formatValue={(v) => v.toFixed(4)} />
                       </td>
                     </tr>
                   )}

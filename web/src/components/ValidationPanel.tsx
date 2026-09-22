@@ -1,6 +1,8 @@
 import { Fragment, useState } from "react";
 import { api } from "../api";
 import type { ProjectDetail, SampleMetrics, StabilityResult, ValidationArtifact } from "../api";
+import HistogramChart from "./HistogramChart";
+import LineChart from "./LineChart";
 import RocChart from "./RocChart";
 
 interface Props {
@@ -120,6 +122,23 @@ export default function ValidationPanel({ project, onSaved }: Props) {
 
           <p className="muted">ROC curve (train)</p>
           <RocChart points={result.roc_train} />
+
+          {result.score_histogram_train && result.score_histogram_train.length > 0 && (
+            <>
+              <p className="muted">Score distribution (train)</p>
+              <HistogramChart bins={result.score_histogram_train} />
+            </>
+          )}
+
+          <p className="muted">Calibration curve — actual bad rate by score bucket (train, riskiest first)</p>
+          <LineChart
+            points={result.decile_table_train.map((row, i) => ({
+              x: i,
+              y: row.bad_rate_pct,
+              label: row.score_range,
+            }))}
+            yLabel="bad rate %"
+          />
 
           <p className="muted">Decile / lift table (train, riskiest first)</p>
           <table className="profile-table">

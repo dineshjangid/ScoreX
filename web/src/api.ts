@@ -260,12 +260,19 @@ export interface RocPoint {
   tpr: number;
 }
 
+export interface HistogramBin {
+  bin_start: number;
+  bin_end: number;
+  count: number;
+}
+
 export interface ValidationArtifact {
   train: SampleMetrics;
   test: SampleMetrics;
   oot: SampleMetrics | null;
   roc_train: RocPoint[];
   decile_table_train: DecileRow[];
+  score_histogram_train?: HistogramBin[];
   psi_test_vs_train: StabilityResult;
   psi_oot_vs_train: StabilityResult | null;
   csi_test_vs_train: Record<string, StabilityResult>;

@@ -7,6 +7,7 @@ from credittool_engine.validation import (
     compute_ks,
     decile_table,
     population_stability_index,
+    score_histogram,
     stability_index,
 )
 
@@ -93,3 +94,23 @@ def test_csi_uses_shared_bin_label_assignment():
     test_labels = assign_bin_labels(values_test, "numeric", cutpoints=cutpoints)
     result = stability_index(train_labels, test_labels)
     assert result["index"] == 0.0
+
+
+def test_score_histogram_covers_every_row_exactly_once():
+    score, _ = _synthetic_scores(n=500)
+    rows = score_histogram(score, n_bins=15)
+    assert len(rows) == 15
+    assert sum(r["count"] for r in rows) == 500
+    # bins are contiguous and ascending
+    for a, b in zip(rows, rows[1:]):
+        assert a["bin_end"] == b["bin_start"]
+
+
+def test_score_histogram_handles_constant_score():
+    score = pd.Series([600.0] * 10)
+    rows = score_histogram(score, n_bins=15)
+    assert rows == [{"bin_start": 600.0, "bin_end": 600.0, "count": 10}]
+
+
+def test_score_histogram_handles_empty_input():
+    assert score_histogram(pd.Series([], dtype=float)) == []

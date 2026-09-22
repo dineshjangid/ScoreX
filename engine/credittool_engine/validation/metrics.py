@@ -73,6 +73,22 @@ def decile_table(bad_flag: pd.Series, score: pd.Series, n_bins: int = 10) -> lis
     return rows
 
 
+def score_histogram(score: pd.Series, n_bins: int = 20) -> list[dict[str, Any]]:
+    """Equal-width histogram of the score (not equal-population like
+    decile_table), for a distribution chart."""
+    if len(score) == 0:
+        return []
+    lo, hi = float(score.min()), float(score.max())
+    if lo == hi:
+        return [{"bin_start": lo, "bin_end": hi, "count": int(len(score))}]
+
+    counts, edges = np.histogram(score, bins=n_bins, range=(lo, hi))
+    return [
+        {"bin_start": round(float(edges[i]), 2), "bin_end": round(float(edges[i + 1]), 2), "count": int(counts[i])}
+        for i in range(len(counts))
+    ]
+
+
 def stability_index(reference_labels: pd.Series, comparison_labels: pd.Series) -> dict[str, Any]:
     """Generic PSI/CSI computation between two label distributions."""
     ref_pct = reference_labels.value_counts(normalize=True)
