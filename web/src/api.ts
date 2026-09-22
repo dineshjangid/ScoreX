@@ -93,12 +93,50 @@ export interface SamplingArtifact {
   summary: SamplingSummary;
 }
 
+export interface BinningConfigInput {
+  max_bins: number;
+  min_bin_size: number;
+  variables: string[] | null;
+}
+
+export interface BinRow {
+  label: string;
+  n_total: number;
+  n_good: number;
+  n_bad: number;
+  bad_rate_pct: number;
+  pct_of_total: number;
+  woe: number;
+}
+
+export interface VariableBinning {
+  variable: string;
+  kind: "numeric" | "categorical";
+  iv: number;
+  bins: BinRow[];
+  cutpoints: number[] | null;
+  categories_map: Record<string, string> | null;
+}
+
+export interface BinningSummaryItem {
+  variable: string;
+  kind: "numeric" | "categorical";
+  iv: number;
+  n_bins: number;
+}
+
+export interface BinningArtifact {
+  config: BinningConfigInput;
+  variables: Record<string, VariableBinning>;
+}
+
 export interface ProjectDetail extends ProjectSummary {
   step_status: Record<string, StepStatus>;
   artifacts: Record<string, unknown> & {
     data_ingestion?: DataIngestionArtifact;
     target_definition?: TargetArtifact;
     sampling?: SamplingArtifact;
+    binning?: BinningArtifact;
   };
 }
 
@@ -173,6 +211,11 @@ export const api = {
     }),
   saveSampling: (projectId: string, body: SamplingConfigInput) =>
     request<SamplingSummary>(`/projects/${projectId}/sampling`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  runBinning: (projectId: string, body: BinningConfigInput) =>
+    request<BinningSummaryItem[]>(`/projects/${projectId}/binning`, {
       method: "POST",
       body: JSON.stringify(body),
     }),

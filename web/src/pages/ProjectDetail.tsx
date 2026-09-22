@@ -2,13 +2,14 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api, STEP_LABELS, STEP_ORDER } from "../api";
 import type { ProjectDetail as ProjectDetailType } from "../api";
+import BinningPanel from "../components/BinningPanel";
 import DataIngestionPanel from "../components/DataIngestionPanel";
 import SamplingPanel from "../components/SamplingPanel";
 import TargetDefinitionPanel from "../components/TargetDefinitionPanel";
 
 // Which steps have a built implementation to expand into. Steps not listed
 // here render as a plain row until their engine module ships.
-const IMPLEMENTED_STEPS = new Set(["data_ingestion", "target_definition", "sampling"]);
+const IMPLEMENTED_STEPS = new Set(["data_ingestion", "target_definition", "sampling", "binning"]);
 
 export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
@@ -39,6 +40,8 @@ export default function ProjectDetail() {
         );
       case "sampling":
         return <SamplingPanel project={project} columns={columns} onSaved={setProject} />;
+      case "binning":
+        return <BinningPanel project={project} onSaved={setProject} />;
       default:
         return null;
     }

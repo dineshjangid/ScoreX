@@ -65,3 +65,35 @@ class SamplingSummary(BaseModel):
     test: SampleGroupSummary
     oot: SampleGroupSummary
     excluded: SampleGroupSummary
+
+
+class BinningConfigIn(BaseModel):
+    max_bins: int = 10
+    min_bin_size: float = 0.05
+    variables: list[str] | None = None
+
+
+class BinRowOut(BaseModel):
+    label: str
+    n_total: int
+    n_good: int
+    n_bad: int
+    bad_rate_pct: float
+    pct_of_total: float
+    woe: float
+
+
+class VariableBinningOut(BaseModel):
+    variable: str
+    kind: str
+    iv: float
+    bins: list[BinRowOut]
+    cutpoints: list[float] | None = None
+    categories_map: dict[str, str] | None = None
+
+
+class BinningSummaryItem(BaseModel):
+    variable: str
+    kind: str
+    iv: float
+    n_bins: int
