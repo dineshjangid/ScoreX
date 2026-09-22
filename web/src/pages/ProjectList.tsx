@@ -3,6 +3,11 @@ import { Link, useNavigate } from "react-router-dom";
 import { api } from "../api";
 import type { ProjectSummary, ScorecardType } from "../api";
 
+const SCORECARD_TYPES: { value: ScorecardType; label: string; description: string }[] = [
+  { value: "application", label: "Application", description: "Score new applicants at origination" },
+  { value: "behavioural", label: "Behavioural", description: "Score existing customers on repayment behaviour" },
+];
+
 export default function ProjectList() {
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
   const [name, setName] = useState("");
@@ -36,43 +41,65 @@ export default function ProjectList() {
   }
 
   return (
-    <div className="page">
-      <h1 className="page-title">ScoreX</h1>
+    <div className="home-shell">
+      <header className="home-header">
+        <h1 className="page-title">ScoreX</h1>
+        <p className="muted">Build, validate, and export credit risk scorecards.</p>
+      </header>
 
-      <form className="card" onSubmit={handleCreate}>
+      <section className="card home-module">
         <h2>New project</h2>
-        <label>
-          Name
-          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Q3 Application Scorecard" />
-        </label>
-        <label>
-          Scorecard type
-          <select value={scorecardType} onChange={(e) => setScorecardType(e.target.value as ScorecardType)}>
-            <option value="application">Application</option>
-            <option value="behavioural">Behavioural</option>
-          </select>
-        </label>
-        <button type="submit">Create project</button>
-      </form>
+        <form onSubmit={handleCreate} className="new-project-form">
+          <label>
+            Name
+            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Q3 Application Scorecard" />
+          </label>
 
-      {loading && <p>Loading…</p>}
-      {error && <p className="error">{error}</p>}
+          <div className="radio-field">
+            <span className="radio-field-label">Scorecard type</span>
+            <div className="radio-group">
+              {SCORECARD_TYPES.map((t) => (
+                <label key={t.value} className={`radio-card ${scorecardType === t.value ? "selected" : ""}`}>
+                  <input
+                    type="radio"
+                    name="scorecardType"
+                    value={t.value}
+                    checked={scorecardType === t.value}
+                    onChange={() => setScorecardType(t.value)}
+                  />
+                  <span className="radio-card-title">{t.label}</span>
+                  <span className="radio-card-desc muted">{t.description}</span>
+                </label>
+              ))}
+            </div>
+          </div>
 
-      <ul className="project-list">
-        {projects.map((p) => (
-          <li key={p.id} className="card">
-            <Link to={`/projects/${p.id}`}>
-              <strong>{p.name}</strong>
-              <span className="badge">{p.scorecard_type}</span>
-            </Link>
-            <span className="muted">updated {new Date(p.updated_at).toLocaleString()}</span>
-            <button className="danger" onClick={() => handleDelete(p.id)}>
-              Delete
-            </button>
-          </li>
-        ))}
+          <button type="submit">Create project</button>
+        </form>
+      </section>
+
+      <section className="home-module">
+        <h2>Your projects</h2>
+        {loading && <p className="muted">Loading…</p>}
+        {error && <p className="error">{error}</p>}
+
+        <div className="project-grid">
+          {projects.map((p) => (
+            <div key={p.id} className="project-card">
+              <button className="delete-corner" onClick={() => handleDelete(p.id)} aria-label={`Delete ${p.name}`}>
+                &times;
+              </button>
+              <Link to={`/projects/${p.id}`} className="project-card-link">
+                <span className="badge">{p.scorecard_type}</span>
+                <strong className="project-card-name">{p.name}</strong>
+                <span className="muted">updated {new Date(p.updated_at).toLocaleString()}</span>
+              </Link>
+            </div>
+          ))}
+        </div>
+
         {!loading && projects.length === 0 && <p className="muted">No projects yet — create one above.</p>}
-      </ul>
+      </section>
     </div>
   );
 }
