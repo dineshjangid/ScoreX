@@ -23,3 +23,11 @@ def test_round_trip_dict_serialization():
     assert restored.scorecard_type == ScorecardType.BEHAVIOURAL
     assert restored.step_status[StepName.DATA_INGESTION] == StepStatus.COMPLETE
     assert restored.artifacts["data_ingestion"] == {"rows": 100}
+
+
+def test_set_extra_stores_side_artifact_without_touching_step_status():
+    project = Project(name="Test", scorecard_type=ScorecardType.APPLICATION)
+    project.set_extra("ml_benchmark", {"train_auc": 0.8})
+
+    assert project.artifacts["ml_benchmark"] == {"train_auc": 0.8}
+    assert all(status == StepStatus.NOT_STARTED for status in project.step_status.values())

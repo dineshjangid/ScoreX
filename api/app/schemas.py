@@ -212,6 +212,26 @@ class RocPoint(BaseModel):
     tpr: float
 
 
+class MLBenchmarkConfigIn(BaseModel):
+    variables: list[str] | None = None
+    n_estimators: int = 100
+    max_depth: int = 3
+
+
+class FeatureImportanceOut(BaseModel):
+    variable: str
+    mean_abs_shap: float
+
+
+class MLBenchmarkOut(BaseModel):
+    variables: list[str]
+    train_auc: float
+    test_auc: float
+    train_gini: float
+    test_gini: float
+    feature_importance: list[FeatureImportanceOut]
+
+
 class ReasonCodesConfigIn(BaseModel):
     top_n: int = 3
     preview_rows: int = 20

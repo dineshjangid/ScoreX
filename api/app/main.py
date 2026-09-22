@@ -7,6 +7,7 @@ from .db import init_db
 from .routers import (
     binning,
     data,
+    ml_benchmark,
     modeling,
     projects,
     reason_codes,
@@ -34,6 +35,7 @@ app.include_router(sampling.router)
 app.include_router(binning.router)
 app.include_router(selection.router)
 app.include_router(modeling.router)
+app.include_router(ml_benchmark.router)
 app.include_router(scaling.router)
 app.include_router(validation.router)
 app.include_router(reason_codes.router)

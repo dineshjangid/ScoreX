@@ -286,11 +286,32 @@ export interface ProjectDetail extends ProjectSummary {
     scaling?: ScalingArtifact;
     validation?: ValidationArtifact;
     reason_codes?: ReasonCodesArtifact;
+    ml_benchmark?: MLBenchmarkResult & { config: MLBenchmarkConfigInput };
   };
 }
 
 export interface ReportingStatus {
   status: string;
+}
+
+export interface MLBenchmarkConfigInput {
+  variables: string[] | null;
+  n_estimators: number;
+  max_depth: number;
+}
+
+export interface FeatureImportance {
+  variable: string;
+  mean_abs_shap: number;
+}
+
+export interface MLBenchmarkResult {
+  variables: string[];
+  train_auc: number;
+  test_auc: number;
+  train_gini: number;
+  test_gini: number;
+  feature_importance: FeatureImportance[];
 }
 
 export const STEP_ORDER = [
@@ -396,4 +417,9 @@ export const api = {
     }),
   completeReporting: (projectId: string) =>
     request<ReportingStatus>(`/projects/${projectId}/reporting`, { method: "POST" }),
+  runMlBenchmark: (projectId: string, body: MLBenchmarkConfigInput) =>
+    request<MLBenchmarkResult>(`/projects/${projectId}/ml_benchmark`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
 };

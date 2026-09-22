@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { api } from "../api";
-import type { ModelArtifact, ProjectDetail } from "../api";
+import type { MLBenchmarkResult, ModelArtifact, ProjectDetail } from "../api";
 
 interface Props {
   project: ProjectDetail;
@@ -12,6 +12,10 @@ export default function ModelingPanel({ project, onSaved }: Props) {
   const [model, setModel] = useState<ModelArtifact | null>(project.artifacts.modeling ?? null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  const [benchmark, setBenchmark] = useState<MLBenchmarkResult | null>(project.artifacts.ml_benchmark ?? null);
+  const [benchmarkError, setBenchmarkError] = useState<string | null>(null);
+  const [benchmarkBusy, setBenchmarkBusy] = useState(false);
 
   const selectionReady = project.step_status["variable_selection"] === "complete";
 
@@ -26,6 +30,20 @@ export default function ModelingPanel({ project, onSaved }: Props) {
       setError(String(err));
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function handleRunBenchmark() {
+    setBenchmarkBusy(true);
+    setBenchmarkError(null);
+    try {
+      const result = await api.runMlBenchmark(project.id, { variables: null, n_estimators: 100, max_depth: 3 });
+      setBenchmark(result);
+      onSaved(await api.getProject(project.id));
+    } catch (err) {
+      setBenchmarkError(String(err));
+    } finally {
+      setBenchmarkBusy(false);
     }
   }
 
@@ -95,6 +113,68 @@ export default function ModelingPanel({ project, onSaved }: Props) {
               ))}
             </tbody>
           </table>
+
+          <hr />
+          <p className="muted">
+            <strong>ML benchmark</strong> — compare against an XGBoost model on the same (raw, non-WOE) variables,
+            with SHAP feature importance. Purely a comparison; it isn't part of the deployed scorecard.
+          </p>
+
+          {benchmarkError && <p className="error">{benchmarkError}</p>}
+
+          <div className="button-row">
+            <button type="button" onClick={handleRunBenchmark} disabled={benchmarkBusy}>
+              Run ML benchmark
+            </button>
+          </div>
+
+          {benchmark && (
+            <>
+              <table className="profile-table">
+                <thead>
+                  <tr>
+                    <th>Model</th>
+                    <th>Train AUC</th>
+                    <th>Test AUC</th>
+                    <th>Train Gini</th>
+                    <th>Test Gini</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>Logistic scorecard</td>
+                    <td colSpan={4} className="muted">
+                      see Validation step
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>XGBoost benchmark</td>
+                    <td>{benchmark.train_auc}</td>
+                    <td>{benchmark.test_auc}</td>
+                    <td>{benchmark.train_gini}</td>
+                    <td>{benchmark.test_gini}</td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <table className="profile-table">
+                <thead>
+                  <tr>
+                    <th>Variable</th>
+                    <th>Mean |SHAP|</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {benchmark.feature_importance.map((f) => (
+                    <tr key={f.variable}>
+                      <td>{f.variable}</td>
+                      <td>{f.mean_abs_shap}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </>
+          )}
         </>
       )}
     </div>

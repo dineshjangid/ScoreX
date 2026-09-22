@@ -77,6 +77,14 @@ class Project:
         self.artifacts[step.value] = payload
         self.updated_at = datetime.now(timezone.utc)
 
+    def set_extra(self, key: str, payload: Any) -> None:
+        """Store a side artifact that isn't part of the step lifecycle
+        (e.g. an optional ML benchmark comparison) — not gated by
+        step_status and not reset by invalidate_downstream.
+        """
+        self.artifacts[key] = payload
+        self.updated_at = datetime.now(timezone.utc)
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
