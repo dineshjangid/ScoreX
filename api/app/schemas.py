@@ -212,6 +212,17 @@ class RocPoint(BaseModel):
     tpr: float
 
 
+class ReasonCodesConfigIn(BaseModel):
+    top_n: int = 3
+    preview_rows: int = 20
+
+
+class ReasonCodesOut(BaseModel):
+    top_n: int
+    n_scored: int
+    preview: list[dict]
+
+
 class ValidationOut(BaseModel):
     train: SampleMetrics
     test: SampleMetrics

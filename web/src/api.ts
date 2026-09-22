@@ -1,4 +1,4 @@
-const API_BASE = "http://127.0.0.1:8000/api";
+export const API_BASE = "http://127.0.0.1:8000/api";
 
 export type ScorecardType = "application" | "behavioural";
 export type StepStatus = "not_started" | "in_progress" | "complete";
@@ -263,6 +263,17 @@ export interface ValidationArtifact {
   csi_oot_vs_train: Record<string, StabilityResult> | null;
 }
 
+export interface ReasonCodesConfigInput {
+  top_n: number;
+  preview_rows: number;
+}
+
+export interface ReasonCodesArtifact {
+  top_n: number;
+  n_scored: number;
+  preview: Record<string, unknown>[];
+}
+
 export interface ProjectDetail extends ProjectSummary {
   step_status: Record<string, StepStatus>;
   artifacts: Record<string, unknown> & {
@@ -274,6 +285,7 @@ export interface ProjectDetail extends ProjectSummary {
     modeling?: ModelArtifact;
     scaling?: ScalingArtifact;
     validation?: ValidationArtifact;
+    reason_codes?: ReasonCodesArtifact;
   };
 }
 
@@ -373,4 +385,9 @@ export const api = {
     }),
   runValidation: (projectId: string) =>
     request<ValidationArtifact>(`/projects/${projectId}/validation`, { method: "POST" }),
+  runReasonCodes: (projectId: string, body: ReasonCodesConfigInput) =>
+    request<ReasonCodesArtifact>(`/projects/${projectId}/reason_codes`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
 };

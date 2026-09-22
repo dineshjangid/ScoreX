@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .db import init_db
-from .routers import binning, data, modeling, projects, sampling, scaling, selection, target, validation
+from .routers import binning, data, modeling, projects, reason_codes, sampling, scaling, selection, target, validation
 
 app = FastAPI(title="Credit Risk Scorecard Tool API", version="0.1.0")
 
@@ -24,6 +24,7 @@ app.include_router(selection.router)
 app.include_router(modeling.router)
 app.include_router(scaling.router)
 app.include_router(validation.router)
+app.include_router(reason_codes.router)
 
 
 @app.on_event("startup")

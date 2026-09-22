@@ -46,6 +46,19 @@ button.danger {
   background: #e5484d1a;
 }
 
+.button-like {
+  display: inline-flex;
+  align-items: center;
+  font: inherit;
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: 1px solid var(--accent-border);
+  background: var(--accent-bg);
+  color: var(--text-h);
+  text-decoration: none;
+  cursor: pointer;
+}
+
 .project-list {
   list-style: none;
   padding: 0;

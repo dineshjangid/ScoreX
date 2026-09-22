@@ -5,6 +5,7 @@ import type { ProjectDetail as ProjectDetailType } from "../api";
 import BinningPanel from "../components/BinningPanel";
 import DataIngestionPanel from "../components/DataIngestionPanel";
 import ModelingPanel from "../components/ModelingPanel";
+import ReasonCodesPanel from "../components/ReasonCodesPanel";
 import SamplingPanel from "../components/SamplingPanel";
 import ScalingPanel from "../components/ScalingPanel";
 import SelectionPanel from "../components/SelectionPanel";
@@ -22,6 +23,7 @@ const IMPLEMENTED_STEPS = new Set([
   "modeling",
   "scaling",
   "validation",
+  "reason_codes",
 ]);
 
 export default function ProjectDetail() {
@@ -63,6 +65,8 @@ export default function ProjectDetail() {
         return <ScalingPanel project={project} onSaved={setProject} />;
       case "validation":
         return <ValidationPanel project={project} onSaved={setProject} />;
+      case "reason_codes":
+        return <ReasonCodesPanel project={project} onSaved={setProject} />;
       default:
         return null;
     }
