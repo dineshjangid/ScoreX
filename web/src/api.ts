@@ -289,6 +289,10 @@ export interface ProjectDetail extends ProjectSummary {
   };
 }
 
+export interface ReportingStatus {
+  status: string;
+}
+
 export const STEP_ORDER = [
   "data_ingestion",
   "target_definition",
@@ -390,4 +394,6 @@ export const api = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+  completeReporting: (projectId: string) =>
+    request<ReportingStatus>(`/projects/${projectId}/reporting`, { method: "POST" }),
 };

@@ -17,10 +17,15 @@ def compute_scores(
     factor: float,
     offset: float,
 ) -> pd.Series:
+    # Round each variable's contribution separately (matching how
+    # scaling.build_scorecard rounds each bin's points), so a score
+    # computed here always equals the sum of the exported scorecard's own
+    # points table for the same input — not a different number from
+    # rounding the continuous total just once.
     const = fitted_params["const"]
-    base_points = offset - factor * const
+    base_points = round(offset - factor * const)
 
-    total = pd.Series(base_points, index=df.index, dtype=float)
+    total = pd.Series(float(base_points), index=df.index)
     for var, coef in fitted_params.items():
         if var == "const":
             continue
@@ -32,6 +37,6 @@ def compute_scores(
             cutpoints=binning.get("cutpoints"),
             categories_map=binning.get("categories_map"),
         )
-        total = total + (-factor * coef * woe)
+        total = total + (-factor * coef * woe).round()
 
-    return total.round().astype(int)
+    return total.astype(int)

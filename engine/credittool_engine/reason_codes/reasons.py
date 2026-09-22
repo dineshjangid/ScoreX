@@ -16,7 +16,11 @@ def compute_variable_contributions(
     factor: float,
 ) -> pd.DataFrame:
     """Points contribution per variable per row (same math as
-    scoring.compute_scores, but kept per-variable rather than summed)."""
+    scoring.compute_scores, but kept per-variable rather than summed).
+
+    Rounded per variable, same as scoring.compute_scores, so the points
+    shown here match the exported scorecard's own points table exactly.
+    """
     data = {}
     for var, coef in fitted_params.items():
         if var == "const":
@@ -29,7 +33,7 @@ def compute_variable_contributions(
             cutpoints=binning.get("cutpoints"),
             categories_map=binning.get("categories_map"),
         )
-        data[var] = -factor * coef * woe
+        data[var] = (-factor * coef * woe).round()
     return pd.DataFrame(data, index=df.index)
 
 
