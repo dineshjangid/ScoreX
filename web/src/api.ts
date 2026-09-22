@@ -28,6 +28,7 @@ export interface ColumnProfile {
     max: number;
   };
   top_values?: { value: string; count: number; pct: number }[];
+  distinct_values?: { value: string; count: number }[];
 }
 
 export interface DataIngestionArtifact {
@@ -42,9 +43,63 @@ export interface DataPreview {
   rows: Record<string, unknown>[];
 }
 
+export type TargetMode = "values" | "threshold";
+
+export interface TargetDefinitionInput {
+  target_column: string;
+  mode: TargetMode;
+  bad_values: string[];
+  threshold: number | null;
+  exclude_values: string[];
+  exclude_column: string | null;
+}
+
+export interface TargetSummary {
+  n_total: number;
+  n_good: number;
+  n_bad: number;
+  n_excluded: number;
+  bad_rate_pct: number;
+}
+
+export interface SamplingConfigInput {
+  test_size: number;
+  oot_size: number;
+  date_column: string | null;
+  random_state: number;
+}
+
+export interface SampleGroupSummary {
+  n_total: number;
+  n_good: number;
+  n_bad: number;
+  bad_rate_pct: number;
+}
+
+export interface SamplingSummary {
+  train: SampleGroupSummary;
+  test: SampleGroupSummary;
+  oot: SampleGroupSummary;
+  excluded: SampleGroupSummary;
+}
+
+export interface TargetArtifact {
+  definition: TargetDefinitionInput;
+  summary: TargetSummary;
+}
+
+export interface SamplingArtifact {
+  config: SamplingConfigInput;
+  summary: SamplingSummary;
+}
+
 export interface ProjectDetail extends ProjectSummary {
   step_status: Record<string, StepStatus>;
-  artifacts: Record<string, unknown> & { data_ingestion?: DataIngestionArtifact };
+  artifacts: Record<string, unknown> & {
+    data_ingestion?: DataIngestionArtifact;
+    target_definition?: TargetArtifact;
+    sampling?: SamplingArtifact;
+  };
 }
 
 export const STEP_ORDER = [
@@ -106,4 +161,19 @@ export const api = {
   },
   getDataPreview: (projectId: string, n = 20) =>
     request<DataPreview>(`/projects/${projectId}/data/preview?n=${n}`),
+  previewTarget: (projectId: string, body: TargetDefinitionInput) =>
+    request<TargetSummary>(`/projects/${projectId}/target/preview`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  saveTarget: (projectId: string, body: TargetDefinitionInput) =>
+    request<TargetSummary>(`/projects/${projectId}/target`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  saveSampling: (projectId: string, body: SamplingConfigInput) =>
+    request<SamplingSummary>(`/projects/${projectId}/sampling`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
 };

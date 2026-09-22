@@ -49,6 +49,13 @@ def profile_column(series: pd.Series) -> dict[str, Any]:
             {"value": val, "count": int(cnt), "pct": round(cnt / n * 100, 2)}
             for val, cnt in top.items()
         ]
+
+    # Low-cardinality columns (of any kind) are candidates for a target/bad
+    # definition, so surface every distinct value regardless of dtype.
+    if not non_null.empty and profile["n_unique"] <= 20:
+        counts = non_null.astype(str).value_counts()
+        profile["distinct_values"] = [{"value": val, "count": int(cnt)} for val, cnt in counts.items()]
+
     return profile
 
 

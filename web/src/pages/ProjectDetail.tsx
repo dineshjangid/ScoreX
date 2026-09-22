@@ -3,10 +3,12 @@ import { Link, useParams } from "react-router-dom";
 import { api, STEP_LABELS, STEP_ORDER } from "../api";
 import type { ProjectDetail as ProjectDetailType } from "../api";
 import DataIngestionPanel from "../components/DataIngestionPanel";
+import SamplingPanel from "../components/SamplingPanel";
+import TargetDefinitionPanel from "../components/TargetDefinitionPanel";
 
 // Which steps have a built implementation to expand into. Steps not listed
 // here render as a plain row until their engine module ships.
-const IMPLEMENTED_STEPS = new Set(["data_ingestion"]);
+const IMPLEMENTED_STEPS = new Set(["data_ingestion", "target_definition", "sampling"]);
 
 export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
@@ -21,6 +23,26 @@ export default function ProjectDetail() {
 
   if (error) return <p className="error">{error}</p>;
   if (!project) return <p>Loading…</p>;
+
+  const columns = project.artifacts.data_ingestion?.columns ?? [];
+
+  function renderStepBody(step: string) {
+    if (!project) return null;
+    switch (step) {
+      case "data_ingestion":
+        return <DataIngestionPanel project={project} onUploaded={setProject} />;
+      case "target_definition":
+        return columns.length > 0 ? (
+          <TargetDefinitionPanel project={project} columns={columns} onSaved={setProject} />
+        ) : (
+          <p className="muted">Upload a dataset first.</p>
+        );
+      case "sampling":
+        return <SamplingPanel project={project} columns={columns} onSaved={setProject} />;
+      default:
+        return null;
+    }
+  }
 
   return (
     <div className="page">
@@ -46,11 +68,7 @@ export default function ProjectDetail() {
                 <span className="step-status">{status.replace("_", " ")}</span>
                 {implemented && <span className="chevron">{isExpanded ? "−" : "+"}</span>}
               </button>
-              {implemented && isExpanded && step === "data_ingestion" && (
-                <div className="step-body">
-                  <DataIngestionPanel project={project} onUploaded={setProject} />
-                </div>
-              )}
+              {implemented && isExpanded && <div className="step-body">{renderStepBody(step)}</div>}
             </li>
           );
         })}

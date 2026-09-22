@@ -204,3 +204,24 @@ button.danger {
   max-width: 100%;
   overflow-x: auto;
 }
+
+.checkbox-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 6px 0;
+}
+
+.checkbox-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-direction: row;
+  font-size: 14px;
+  font-weight: normal;
+}
+
+.button-row {
+  display: flex;
+  gap: 10px;
+}

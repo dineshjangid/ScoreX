@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .db import init_db
-from .routers import data, projects
+from .routers import data, projects, sampling, target
 
 app = FastAPI(title="Credit Risk Scorecard Tool API", version="0.1.0")
 
@@ -17,6 +17,8 @@ app.add_middleware(
 
 app.include_router(projects.router)
 app.include_router(data.router)
+app.include_router(target.router)
+app.include_router(sampling.router)
 
 
 @app.on_event("startup")

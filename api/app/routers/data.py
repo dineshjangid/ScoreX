@@ -11,7 +11,7 @@ from credittool_engine.data import SUPPORTED_EXTENSIONS, load_dataframe, profile
 from credittool_engine.project import StepName, StepStatus
 
 from ..db import UPLOADS_DIR, get_session
-from ..repo import get_record_or_404, record_to_project, save_project
+from ..repo import get_record_or_404, invalidate_downstream, record_to_project, save_project
 from ..schemas import DataPreview, ProjectDetail
 
 router = APIRouter(prefix="/api/projects/{project_id}/data", tags=["data"])
@@ -57,6 +57,9 @@ async def upload_data(project_id: str, file: UploadFile) -> ProjectDetail:
             {"original_filename": file.filename, **profile},
         )
         project.mark_step(StepName.DATA_INGESTION, StepStatus.COMPLETE)
+
+        # A new upload invalidates everything computed against the old file.
+        invalidate_downstream(project, record, StepName.DATA_INGESTION)
 
         # Replace any previously uploaded file for this project.
         if record.data_path and record.data_path != str(dest_path) and os.path.exists(record.data_path):

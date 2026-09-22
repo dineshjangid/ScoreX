@@ -38,10 +38,28 @@ class ProjectRecord(Base):
     payload = Column(Text, nullable=False)
     # Path to the uploaded raw dataset for this project, once ingested.
     data_path = Column(String, nullable=True)
+    # Path to the target/sample assignment (target + train/test/oot label
+    # per row), once target definition + sampling have been run.
+    splits_path = Column(String, nullable=True)
+
+
+def _add_missing_columns() -> None:
+    """Best-effort dev-time migration: add any ProjectRecord columns that
+    don't exist yet on an already-created `projects` table. Adequate for a
+    local single-user SQLite file; swap for Alembic if/when this moves to
+    Postgres for multi-user.
+    """
+    with engine.connect() as conn:
+        existing = {row[1] for row in conn.exec_driver_sql("PRAGMA table_info(projects)").fetchall()}
+        for column in ProjectRecord.__table__.columns:
+            if column.name not in existing:
+                conn.exec_driver_sql(f"ALTER TABLE projects ADD COLUMN {column.name} {column.type}")
+        conn.commit()
 
 
 def init_db() -> None:
     Base.metadata.create_all(engine)
+    _add_missing_columns()
 
 
 def get_session() -> Session:
