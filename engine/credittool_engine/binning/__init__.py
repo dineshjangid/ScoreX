@@ -4,7 +4,7 @@ import pandas as pd
 
 from .categorical import bin_categorical_variable
 from .numeric import bin_numeric_variable
-from .transform import apply_binning, apply_variable_binning
+from .transform import apply_binning, apply_variable_binning, assign_bin_labels
 from .types import MISSING_LABEL, OTHER_LABEL, VariableBinning
 from .woe import BinStat, compute_bin_stats
 
@@ -19,6 +19,7 @@ __all__ = [
     "bin_variable",
     "apply_binning",
     "apply_variable_binning",
+    "assign_bin_labels",
 ]
 
 

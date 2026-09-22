@@ -9,6 +9,7 @@ import SamplingPanel from "../components/SamplingPanel";
 import ScalingPanel from "../components/ScalingPanel";
 import SelectionPanel from "../components/SelectionPanel";
 import TargetDefinitionPanel from "../components/TargetDefinitionPanel";
+import ValidationPanel from "../components/ValidationPanel";
 
 // Which steps have a built implementation to expand into. Steps not listed
 // here render as a plain row until their engine module ships.
@@ -20,6 +21,7 @@ const IMPLEMENTED_STEPS = new Set([
   "variable_selection",
   "modeling",
   "scaling",
+  "validation",
 ]);
 
 export default function ProjectDetail() {
@@ -59,6 +61,8 @@ export default function ProjectDetail() {
         return <ModelingPanel project={project} onSaved={setProject} />;
       case "scaling":
         return <ScalingPanel project={project} onSaved={setProject} />;
+      case "validation":
+        return <ValidationPanel project={project} onSaved={setProject} />;
       default:
         return null;
     }

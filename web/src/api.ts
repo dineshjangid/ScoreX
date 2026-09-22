@@ -217,6 +217,52 @@ export interface ScalingArtifact extends Scorecard {
   config: ScalingConfigInput;
 }
 
+export interface SampleMetrics {
+  n_total: number;
+  n_bad: number;
+  bad_rate_pct: number;
+  ks: number;
+  auc: number;
+  gini: number;
+}
+
+export interface StabilityBucket {
+  bucket: string;
+  reference_pct: number;
+  comparison_pct: number;
+  contribution: number;
+}
+
+export interface StabilityResult {
+  index: number;
+  buckets: StabilityBucket[];
+}
+
+export interface DecileRow {
+  score_range: string;
+  n_total: number;
+  n_bad: number;
+  bad_rate_pct: number;
+  pct_of_total_bad: number;
+}
+
+export interface RocPoint {
+  fpr: number;
+  tpr: number;
+}
+
+export interface ValidationArtifact {
+  train: SampleMetrics;
+  test: SampleMetrics;
+  oot: SampleMetrics | null;
+  roc_train: RocPoint[];
+  decile_table_train: DecileRow[];
+  psi_test_vs_train: StabilityResult;
+  psi_oot_vs_train: StabilityResult | null;
+  csi_test_vs_train: Record<string, StabilityResult>;
+  csi_oot_vs_train: Record<string, StabilityResult> | null;
+}
+
 export interface ProjectDetail extends ProjectSummary {
   step_status: Record<string, StepStatus>;
   artifacts: Record<string, unknown> & {
@@ -227,6 +273,7 @@ export interface ProjectDetail extends ProjectSummary {
     variable_selection?: SelectionArtifact;
     modeling?: ModelArtifact;
     scaling?: ScalingArtifact;
+    validation?: ValidationArtifact;
   };
 }
 
@@ -324,4 +371,6 @@ export const api = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+  runValidation: (projectId: string) =>
+    request<ValidationArtifact>(`/projects/${projectId}/validation`, { method: "POST" }),
 };

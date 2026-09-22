@@ -176,3 +176,49 @@ class ScorecardOut(BaseModel):
     min_score: int
     max_score: int
     train_score_distribution: ScoreDistribution
+
+
+class SampleMetrics(BaseModel):
+    n_total: int
+    n_bad: int
+    bad_rate_pct: float
+    ks: float
+    auc: float
+    gini: float
+
+
+class StabilityBucket(BaseModel):
+    bucket: str
+    reference_pct: float
+    comparison_pct: float
+    contribution: float
+
+
+class StabilityResult(BaseModel):
+    index: float
+    buckets: list[StabilityBucket]
+
+
+class DecileRow(BaseModel):
+    score_range: str
+    n_total: int
+    n_bad: int
+    bad_rate_pct: float
+    pct_of_total_bad: float
+
+
+class RocPoint(BaseModel):
+    fpr: float
+    tpr: float
+
+
+class ValidationOut(BaseModel):
+    train: SampleMetrics
+    test: SampleMetrics
+    oot: SampleMetrics | None
+    roc_train: list[RocPoint]
+    decile_table_train: list[DecileRow]
+    psi_test_vs_train: StabilityResult
+    psi_oot_vs_train: StabilityResult | None
+    csi_test_vs_train: dict[str, StabilityResult]
+    csi_oot_vs_train: dict[str, StabilityResult] | None
