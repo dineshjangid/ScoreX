@@ -6,11 +6,11 @@ from fastapi import APIRouter, HTTPException
 
 from credittool_engine.data import load_dataframe
 from credittool_engine.project import StepName, StepStatus
-from credittool_engine.target import TargetDefinition, apply_target_definition, target_summary
+from credittool_engine.target import TargetDefinition, apply_target_definition, target_summary, vintage_analysis
 
 from ..db import get_session
 from ..repo import get_record_or_404, invalidate_downstream, record_to_project, save_project
-from ..schemas import TargetDefinitionIn, TargetSummary
+from ..schemas import TargetDefinitionIn, TargetSummary, VintageRow
 
 router = APIRouter(prefix="/api/projects/{project_id}/target", tags=["target"])
 
@@ -32,6 +32,8 @@ def _compute_summary(project_id: str, body: TargetDefinitionIn) -> TargetSummary
             threshold=body.threshold,
             exclude_values=body.exclude_values,
             exclude_column=body.exclude_column,
+            observation_date_column=body.observation_date_column,
+            performance_window_months=body.performance_window_months,
         )
         try:
             bad_flag = apply_target_definition(df, target_def)
@@ -62,3 +64,29 @@ def save_target(project_id: str, body: TargetDefinitionIn) -> TargetSummary:
         save_project(session, record, project)
 
     return summary
+
+
+@router.get("/vintage", response_model=list[VintageRow])
+def get_vintage_analysis(project_id: str, date_column: str | None = None) -> list[VintageRow]:
+    with get_session() as session:
+        record = get_record_or_404(session, project_id)
+        project = record_to_project(record)
+        df = _load_raw_df(record)
+
+        target_artifact = project.artifacts.get(StepName.TARGET_DEFINITION.value)
+        if not target_artifact:
+            raise HTTPException(status_code=400, detail="Define the target before running vintage analysis")
+
+        target_def = TargetDefinition.from_dict(target_artifact["definition"])
+        date_col = date_column or target_def.observation_date_column
+        if not date_col:
+            raise HTTPException(
+                status_code=400,
+                detail="Provide a date_column, or set an observation date column on the target definition",
+            )
+        if date_col not in df.columns:
+            raise HTTPException(status_code=400, detail=f"Unknown column '{date_col}'")
+
+        bad_flag = apply_target_definition(df, target_def)
+        rows = vintage_analysis(df, date_col, bad_flag)
+        return [VintageRow(**r) for r in rows]

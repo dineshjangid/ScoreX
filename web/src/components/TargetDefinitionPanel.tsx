@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { api } from "../api";
-import type { ColumnProfile, ProjectDetail, TargetMode, TargetSummary } from "../api";
+import type { ColumnProfile, ProjectDetail, TargetMode, TargetSummary, VintageRow } from "../api";
 
 interface Props {
   project: ProjectDetail;
@@ -54,10 +54,19 @@ export default function TargetDefinitionPanel({ project, columns, onSaved }: Pro
   const [threshold, setThreshold] = useState<string>(existing?.threshold?.toString() ?? "");
   const [excludeColumn, setExcludeColumn] = useState<string>(existing?.exclude_column ?? "");
   const [excludeValues, setExcludeValues] = useState<string[]>(existing?.exclude_values ?? []);
+  const [observationDateColumn, setObservationDateColumn] = useState<string>(existing?.observation_date_column ?? "");
+  const [performanceWindowMonths, setPerformanceWindowMonths] = useState<string>(
+    existing?.performance_window_months?.toString() ?? ""
+  );
   const [summary, setSummary] = useState<TargetSummary | null>(project.artifacts.target_definition?.summary ?? null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  const [vintageRows, setVintageRows] = useState<VintageRow[] | null>(null);
+  const [vintageError, setVintageError] = useState<string | null>(null);
+  const [vintageBusy, setVintageBusy] = useState(false);
+
+  const isBehavioural = project.scorecard_type === "behavioural";
   const targetCol = columns.find((c) => c.name === targetColumn);
   const excludeCol = columns.find((c) => c.name === excludeColumn);
 
@@ -69,7 +78,21 @@ export default function TargetDefinitionPanel({ project, columns, onSaved }: Pro
       threshold: mode === "threshold" ? parseFloat(threshold) : null,
       exclude_values: excludeValues,
       exclude_column: excludeColumn || null,
+      observation_date_column: isBehavioural ? observationDateColumn || null : null,
+      performance_window_months: isBehavioural && performanceWindowMonths ? parseInt(performanceWindowMonths, 10) : null,
     };
+  }
+
+  async function handleRunVintage() {
+    setVintageBusy(true);
+    setVintageError(null);
+    try {
+      setVintageRows(await api.getVintageAnalysis(project.id, observationDateColumn || undefined));
+    } catch (err) {
+      setVintageError(String(err));
+    } finally {
+      setVintageBusy(false);
+    }
   }
 
   async function handlePreview() {
@@ -149,6 +172,37 @@ export default function TargetDefinitionPanel({ project, columns, onSaved }: Pro
         </div>
       )}
 
+      {isBehavioural && (
+        <>
+          <hr />
+          <p className="muted">
+            <strong>Behavioural scorecard design</strong> — descriptive only: the target above should already be a
+            pre-computed performance flag over this window (e.g. "bad in the 12 months after observation"). These
+            fields document that design and drive vintage analysis below.
+          </p>
+          <label>
+            Observation date column
+            <select value={observationDateColumn} onChange={(e) => setObservationDateColumn(e.target.value)}>
+              <option value="">— none —</option>
+              {columns.map((c) => (
+                <option key={c.name} value={c.name}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Performance window (months)
+            <input
+              type="number"
+              min="1"
+              value={performanceWindowMonths}
+              onChange={(e) => setPerformanceWindowMonths(e.target.value)}
+            />
+          </label>
+        </>
+      )}
+
       {error && <p className="error">{error}</p>}
 
       <div className="button-row">
@@ -185,6 +239,44 @@ export default function TargetDefinitionPanel({ project, columns, onSaved }: Pro
             </tr>
           </tbody>
         </table>
+      )}
+
+      {isBehavioural && (
+        <>
+          <hr />
+          <p className="muted">
+            <strong>Vintage analysis</strong> — bad rate by observation-month cohort, to sanity-check the
+            performance window before sampling.
+          </p>
+          {vintageError && <p className="error">{vintageError}</p>}
+          <div className="button-row">
+            <button type="button" onClick={handleRunVintage} disabled={vintageBusy || !observationDateColumn}>
+              Run vintage analysis
+            </button>
+          </div>
+          {vintageRows && (
+            <table className="profile-table">
+              <thead>
+                <tr>
+                  <th>Cohort</th>
+                  <th>N</th>
+                  <th>Bad</th>
+                  <th>Bad rate</th>
+                </tr>
+              </thead>
+              <tbody>
+                {vintageRows.map((r) => (
+                  <tr key={r.cohort}>
+                    <td>{r.cohort}</td>
+                    <td>{r.n_total}</td>
+                    <td>{r.n_bad}</td>
+                    <td>{r.bad_rate_pct}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </>
       )}
     </div>
   );

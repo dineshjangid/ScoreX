@@ -52,6 +52,15 @@ export interface TargetDefinitionInput {
   threshold: number | null;
   exclude_values: string[];
   exclude_column: string | null;
+  observation_date_column: string | null;
+  performance_window_months: number | null;
+}
+
+export interface VintageRow {
+  cohort: string;
+  n_total: number;
+  n_bad: number;
+  bad_rate_pct: number;
 }
 
 export interface TargetSummary {
@@ -383,6 +392,10 @@ export const api = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+  getVintageAnalysis: (projectId: string, dateColumn?: string) =>
+    request<VintageRow[]>(
+      `/projects/${projectId}/target/vintage${dateColumn ? `?date_column=${encodeURIComponent(dateColumn)}` : ""}`
+    ),
   saveSampling: (projectId: string, body: SamplingConfigInput) =>
     request<SamplingSummary>(`/projects/${projectId}/sampling`, {
       method: "POST",

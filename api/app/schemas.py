@@ -36,6 +36,8 @@ class TargetDefinitionIn(BaseModel):
     threshold: float | None = None
     exclude_values: list[str] = []
     exclude_column: str | None = None
+    observation_date_column: str | None = None
+    performance_window_months: int | None = None
 
 
 class TargetSummary(BaseModel):
@@ -43,6 +45,13 @@ class TargetSummary(BaseModel):
     n_good: int
     n_bad: int
     n_excluded: int
+    bad_rate_pct: float
+
+
+class VintageRow(BaseModel):
+    cohort: str
+    n_total: int
+    n_bad: int
     bad_rate_pct: float
 
 

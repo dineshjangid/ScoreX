@@ -29,6 +29,13 @@ class TargetDefinition:
     # dropping declined applicants via a "decision" column while the target
     # is computed from a repayment column.
     exclude_column: str | None = None
+    # Behavioural-scorecard metadata, purely descriptive: the target is
+    # still whatever target_column/mode/bad_values resolve to (typically a
+    # pre-computed performance flag already reflecting this window) — these
+    # two fields just document the design for the report, and drive vintage
+    # analysis's date grouping.
+    observation_date_column: str | None = None
+    performance_window_months: int | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -38,6 +45,8 @@ class TargetDefinition:
             "threshold": self.threshold,
             "exclude_values": self.exclude_values,
             "exclude_column": self.exclude_column,
+            "observation_date_column": self.observation_date_column,
+            "performance_window_months": self.performance_window_months,
         }
 
     @classmethod
@@ -49,6 +58,8 @@ class TargetDefinition:
             threshold=data.get("threshold"),
             exclude_values=data.get("exclude_values", []),
             exclude_column=data.get("exclude_column"),
+            observation_date_column=data.get("observation_date_column"),
+            performance_window_months=data.get("performance_window_months"),
         )
 
 
