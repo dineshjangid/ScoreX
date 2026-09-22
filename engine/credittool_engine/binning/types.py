@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from .woe import BinStat
 
 MISSING_LABEL = "Missing"
+OTHER_LABEL = "Other"
 
 
 @dataclass

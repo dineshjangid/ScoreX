@@ -97,3 +97,44 @@ class BinningSummaryItem(BaseModel):
     kind: str
     iv: float
     n_bins: int
+
+
+class SelectionConfigIn(BaseModel):
+    min_iv: float = 0.02
+    max_corr: float = 0.7
+    max_vif: float = 5.0
+
+
+class DroppedVariable(BaseModel):
+    variable: str
+    reason: str
+
+
+class SelectionResultOut(BaseModel):
+    selected: list[str]
+    dropped: list[DroppedVariable]
+    correlation_matrix: dict[str, dict[str, float]]
+    vif: dict[str, float]
+
+
+class ModelingConfigIn(BaseModel):
+    variables: list[str] | None = None
+
+
+class CoefficientOut(BaseModel):
+    variable: str
+    coefficient: float
+    std_error: float
+    p_value: float
+    z_value: float
+
+
+class ModelOut(BaseModel):
+    variables: list[str]
+    intercept: float
+    coefficients: list[CoefficientOut]
+    n_obs: int
+    log_likelihood: float
+    pseudo_r2: float
+    aic: float
+    fitted_params: dict[str, float]

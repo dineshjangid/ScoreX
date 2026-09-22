@@ -4,17 +4,21 @@ import pandas as pd
 
 from .categorical import bin_categorical_variable
 from .numeric import bin_numeric_variable
-from .types import MISSING_LABEL, VariableBinning
+from .transform import apply_binning, apply_variable_binning
+from .types import MISSING_LABEL, OTHER_LABEL, VariableBinning
 from .woe import BinStat, compute_bin_stats
 
 __all__ = [
     "MISSING_LABEL",
+    "OTHER_LABEL",
     "VariableBinning",
     "BinStat",
     "compute_bin_stats",
     "bin_numeric_variable",
     "bin_categorical_variable",
     "bin_variable",
+    "apply_binning",
+    "apply_variable_binning",
 ]
 
 

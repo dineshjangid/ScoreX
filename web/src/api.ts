@@ -130,6 +130,51 @@ export interface BinningArtifact {
   variables: Record<string, VariableBinning>;
 }
 
+export interface SelectionConfigInput {
+  min_iv: number;
+  max_corr: number;
+  max_vif: number;
+}
+
+export interface DroppedVariable {
+  variable: string;
+  reason: string;
+}
+
+export interface SelectionResult {
+  selected: string[];
+  dropped: DroppedVariable[];
+  correlation_matrix: Record<string, Record<string, number>>;
+  vif: Record<string, number>;
+}
+
+export interface SelectionArtifact extends SelectionResult {
+  config: SelectionConfigInput;
+}
+
+export interface ModelingConfigInput {
+  variables: string[] | null;
+}
+
+export interface CoefficientRow {
+  variable: string;
+  coefficient: number;
+  std_error: number;
+  p_value: number;
+  z_value: number;
+}
+
+export interface ModelArtifact {
+  variables: string[];
+  intercept: number;
+  coefficients: CoefficientRow[];
+  n_obs: number;
+  log_likelihood: number;
+  pseudo_r2: number;
+  aic: number;
+  fitted_params: Record<string, number>;
+}
+
 export interface ProjectDetail extends ProjectSummary {
   step_status: Record<string, StepStatus>;
   artifacts: Record<string, unknown> & {
@@ -137,6 +182,8 @@ export interface ProjectDetail extends ProjectSummary {
     target_definition?: TargetArtifact;
     sampling?: SamplingArtifact;
     binning?: BinningArtifact;
+    variable_selection?: SelectionArtifact;
+    modeling?: ModelArtifact;
   };
 }
 
@@ -216,6 +263,16 @@ export const api = {
     }),
   runBinning: (projectId: string, body: BinningConfigInput) =>
     request<BinningSummaryItem[]>(`/projects/${projectId}/binning`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  runSelection: (projectId: string, body: SelectionConfigInput) =>
+    request<SelectionResult>(`/projects/${projectId}/selection`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  runModeling: (projectId: string, body: ModelingConfigInput) =>
+    request<ModelArtifact>(`/projects/${projectId}/modeling`, {
       method: "POST",
       body: JSON.stringify(body),
     }),

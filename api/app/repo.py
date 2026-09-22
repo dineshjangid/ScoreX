@@ -3,9 +3,11 @@ from __future__ import annotations
 
 import json
 
+import pandas as pd
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
+from credittool_engine.binning import apply_binning
 from credittool_engine.project import STEP_ORDER, Project, StepName, StepStatus
 
 from .db import ProjectRecord
@@ -41,3 +43,21 @@ def save_project(session: Session, record: ProjectRecord, project: Project) -> N
     record.updated_at = project.updated_at.isoformat()
     session.add(record)
     session.commit()
+
+
+def build_woe_frame(df: pd.DataFrame, binning_variables: dict, idx: pd.Index) -> pd.DataFrame:
+    """WOE-transform every binned variable for the given rows, using the
+    binning artifact's stored bins/cutpoints/categories_map (as persisted
+    JSON dicts, not the VariableBinning dataclass).
+    """
+    data = {
+        var: apply_binning(
+            df.loc[idx, var],
+            kind=binning["kind"],
+            bins=binning["bins"],
+            cutpoints=binning.get("cutpoints"),
+            categories_map=binning.get("categories_map"),
+        )
+        for var, binning in binning_variables.items()
+    }
+    return pd.DataFrame(data, index=idx)

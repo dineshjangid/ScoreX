@@ -4,12 +4,21 @@ import { api, STEP_LABELS, STEP_ORDER } from "../api";
 import type { ProjectDetail as ProjectDetailType } from "../api";
 import BinningPanel from "../components/BinningPanel";
 import DataIngestionPanel from "../components/DataIngestionPanel";
+import ModelingPanel from "../components/ModelingPanel";
 import SamplingPanel from "../components/SamplingPanel";
+import SelectionPanel from "../components/SelectionPanel";
 import TargetDefinitionPanel from "../components/TargetDefinitionPanel";
 
 // Which steps have a built implementation to expand into. Steps not listed
 // here render as a plain row until their engine module ships.
-const IMPLEMENTED_STEPS = new Set(["data_ingestion", "target_definition", "sampling", "binning"]);
+const IMPLEMENTED_STEPS = new Set([
+  "data_ingestion",
+  "target_definition",
+  "sampling",
+  "binning",
+  "variable_selection",
+  "modeling",
+]);
 
 export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
@@ -42,6 +51,10 @@ export default function ProjectDetail() {
         return <SamplingPanel project={project} columns={columns} onSaved={setProject} />;
       case "binning":
         return <BinningPanel project={project} onSaved={setProject} />;
+      case "variable_selection":
+        return <SelectionPanel project={project} onSaved={setProject} />;
+      case "modeling":
+        return <ModelingPanel project={project} onSaved={setProject} />;
       default:
         return null;
     }

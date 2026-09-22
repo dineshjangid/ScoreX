@@ -6,10 +6,8 @@ from __future__ import annotations
 
 import pandas as pd
 
-from .types import MISSING_LABEL, VariableBinning
+from .types import MISSING_LABEL, OTHER_LABEL, VariableBinning
 from .woe import compute_bin_stats
-
-OTHER_LABEL = "Other"
 
 
 def bin_categorical_variable(
