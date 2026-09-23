@@ -236,6 +236,7 @@ class MLBenchmarkConfigIn(BaseModel):
     variables: list[str] | None = None
     n_estimators: int = 100
     max_depth: int = 3
+    algorithm: str = "xgboost"  # "xgboost" | "random_forest" | "lightgbm" | "catboost" | "all"
 
 
 class FeatureImportanceOut(BaseModel):
@@ -244,12 +245,17 @@ class FeatureImportanceOut(BaseModel):
 
 
 class MLBenchmarkOut(BaseModel):
+    algorithm: str
     variables: list[str]
     train_auc: float
     test_auc: float
     train_gini: float
     test_gini: float
     feature_importance: list[FeatureImportanceOut]
+
+
+class MLBenchmarkAllOut(BaseModel):
+    results: dict[str, MLBenchmarkOut]
 
 
 class ReasonCodesConfigIn(BaseModel):

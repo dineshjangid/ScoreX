@@ -388,7 +388,7 @@ export interface ProjectDetail extends ProjectSummary {
     scaling?: ScalingArtifact;
     validation?: ValidationArtifact;
     reason_codes?: ReasonCodesArtifact;
-    ml_benchmark?: MLBenchmarkResult & { config: MLBenchmarkConfigInput };
+    ml_benchmark?: { config: MLBenchmarkConfigInput; results: Record<string, MLBenchmarkResult> };
     batch_scoring?: BatchScoringResult;
     decision_tree?: DecisionTreeArtifact;
   };
@@ -420,14 +420,24 @@ export interface VersionDetail extends VersionSummary {
     modeling?: ModelArtifact;
     scaling?: ScalingArtifact;
     validation?: ValidationArtifact;
-    ml_benchmark?: (MLBenchmarkResult & { config: MLBenchmarkConfigInput }) | null;
+    ml_benchmark?: { config: MLBenchmarkConfigInput; results: Record<string, MLBenchmarkResult> } | null;
   };
 }
+
+export type MLAlgorithm = "xgboost" | "random_forest" | "lightgbm" | "catboost";
+
+export const ML_ALGORITHM_LABELS: Record<MLAlgorithm, string> = {
+  xgboost: "XGBoost",
+  random_forest: "Random Forest",
+  lightgbm: "LightGBM",
+  catboost: "CatBoost",
+};
 
 export interface MLBenchmarkConfigInput {
   variables: string[] | null;
   n_estimators: number;
   max_depth: number;
+  algorithm: MLAlgorithm | "all";
 }
 
 export interface FeatureImportance {
@@ -436,12 +446,17 @@ export interface FeatureImportance {
 }
 
 export interface MLBenchmarkResult {
+  algorithm: string;
   variables: string[];
   train_auc: number;
   test_auc: number;
   train_gini: number;
   test_gini: number;
   feature_importance: FeatureImportance[];
+}
+
+export interface MLBenchmarkAllResult {
+  results: Record<string, MLBenchmarkResult>;
 }
 
 export const STEP_ORDER = [
@@ -572,7 +587,7 @@ export const api = {
   completeReporting: (projectId: string) =>
     request<ReportingStatus>(`/projects/${projectId}/reporting`, { method: "POST" }),
   runMlBenchmark: (projectId: string, body: MLBenchmarkConfigInput) =>
-    request<MLBenchmarkResult>(`/projects/${projectId}/ml_benchmark`, {
+    request<MLBenchmarkAllResult>(`/projects/${projectId}/ml_benchmark`, {
       method: "POST",
       body: JSON.stringify(body),
     }),

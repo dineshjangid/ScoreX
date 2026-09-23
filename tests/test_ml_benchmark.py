@@ -1,7 +1,8 @@
 import numpy as np
 import pandas as pd
+import pytest
 
-from credittool_engine.modeling import fit_ml_benchmark
+from credittool_engine.modeling import ALL_ALGORITHMS, fit_all_benchmarks, fit_ml_benchmark
 
 
 def _synthetic_credit_data(n=1000, seed=0):
@@ -16,24 +17,27 @@ def _synthetic_credit_data(n=1000, seed=0):
     return df, pd.Series(bad)
 
 
-def test_ml_benchmark_reports_discriminative_auc():
+@pytest.mark.parametrize("algorithm", ALL_ALGORITHMS)
+def test_ml_benchmark_reports_discriminative_auc(algorithm):
     df, bad = _synthetic_credit_data()
     train_df, test_df = df.iloc[:700], df.iloc[700:]
     train_bad, test_bad = bad.iloc[:700], bad.iloc[700:]
 
-    result = fit_ml_benchmark(train_df, train_bad, test_df, test_bad, variables=["income", "segment"])
+    result = fit_ml_benchmark(train_df, train_bad, test_df, test_bad, variables=["income", "segment"], algorithm=algorithm)
 
+    assert result.algorithm == algorithm
     assert result.train_auc > 0.55
     assert result.test_auc > 0.5
     assert np.isclose(result.train_gini, 2 * result.train_auc - 1, atol=1e-3)
 
 
-def test_ml_benchmark_feature_importance_covers_all_variables():
+@pytest.mark.parametrize("algorithm", ALL_ALGORITHMS)
+def test_ml_benchmark_feature_importance_covers_all_variables(algorithm):
     df, bad = _synthetic_credit_data()
     train_df, test_df = df.iloc[:700], df.iloc[700:]
     train_bad, test_bad = bad.iloc[:700], bad.iloc[700:]
 
-    result = fit_ml_benchmark(train_df, train_bad, test_df, test_bad, variables=["income", "segment"])
+    result = fit_ml_benchmark(train_df, train_bad, test_df, test_bad, variables=["income", "segment"], algorithm=algorithm)
 
     variables_in_importance = {f.variable for f in result.feature_importance}
     assert variables_in_importance == {"income", "segment"}
@@ -43,12 +47,24 @@ def test_ml_benchmark_feature_importance_covers_all_variables():
     assert importances == sorted(importances, reverse=True)
 
 
-def test_ml_benchmark_handles_single_class_test_sample():
+@pytest.mark.parametrize("algorithm", ALL_ALGORITHMS)
+def test_ml_benchmark_handles_single_class_test_sample(algorithm):
     df, bad = _synthetic_credit_data(n=200)
     train_df, test_df = df.iloc[:150], df.iloc[150:]
     train_bad = bad.iloc[:150]
     test_bad = pd.Series([0.0] * 50)  # degenerate: no bads in test
 
-    result = fit_ml_benchmark(train_df, train_bad, test_df, test_bad, variables=["income", "segment"])
+    result = fit_ml_benchmark(train_df, train_bad, test_df, test_bad, variables=["income", "segment"], algorithm=algorithm)
     assert result.test_auc == 0.5
     assert result.test_gini == 0.0
+
+
+def test_fit_all_benchmarks_returns_one_result_per_algorithm():
+    df, bad = _synthetic_credit_data()
+    train_df, test_df = df.iloc[:700], df.iloc[700:]
+    train_bad, test_bad = bad.iloc[:700], bad.iloc[700:]
+
+    results = fit_all_benchmarks(train_df, train_bad, test_df, test_bad, variables=["income", "segment"])
+
+    assert [r.algorithm for r in results] == list(ALL_ALGORITHMS)
+    assert all(r.test_auc > 0.5 for r in results)

@@ -1,11 +1,19 @@
 import { useState } from "react";
-import { api } from "../api";
-import type { MLBenchmarkResult, ModelArtifact, ProjectDetail } from "../api";
+import { api, ML_ALGORITHM_LABELS } from "../api";
+import type { MLAlgorithm, MLBenchmarkResult, ModelArtifact, ProjectDetail } from "../api";
 
 interface Props {
   project: ProjectDetail;
   onSaved: (project: ProjectDetail) => void;
 }
+
+const ALGORITHM_OPTIONS: { value: MLAlgorithm | "all"; label: string }[] = [
+  { value: "xgboost", label: "XGBoost" },
+  { value: "random_forest", label: "Random Forest" },
+  { value: "lightgbm", label: "LightGBM" },
+  { value: "catboost", label: "CatBoost" },
+  { value: "all", label: "Compare all four" },
+];
 
 export default function ModelingPanel({ project, onSaved }: Props) {
   const selected = project.artifacts.variable_selection?.selected ?? [];
@@ -13,7 +21,9 @@ export default function ModelingPanel({ project, onSaved }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const [benchmark, setBenchmark] = useState<MLBenchmarkResult | null>(project.artifacts.ml_benchmark ?? null);
+  const [results, setResults] = useState<Record<string, MLBenchmarkResult>>(project.artifacts.ml_benchmark?.results ?? {});
+  const [algorithm, setAlgorithm] = useState<MLAlgorithm | "all">("xgboost");
+  const [viewAlgorithm, setViewAlgorithm] = useState<string | null>(Object.keys(results)[0] ?? null);
   const [benchmarkError, setBenchmarkError] = useState<string | null>(null);
   const [benchmarkBusy, setBenchmarkBusy] = useState(false);
 
@@ -37,8 +47,9 @@ export default function ModelingPanel({ project, onSaved }: Props) {
     setBenchmarkBusy(true);
     setBenchmarkError(null);
     try {
-      const result = await api.runMlBenchmark(project.id, { variables: null, n_estimators: 100, max_depth: 3 });
-      setBenchmark(result);
+      const result = await api.runMlBenchmark(project.id, { variables: null, n_estimators: 100, max_depth: 3, algorithm });
+      setResults(result.results);
+      setViewAlgorithm(algorithm === "all" ? Object.keys(result.results)[0] ?? null : algorithm);
       onSaved(await api.getProject(project.id));
     } catch (err) {
       setBenchmarkError(String(err));
@@ -46,6 +57,9 @@ export default function ModelingPanel({ project, onSaved }: Props) {
       setBenchmarkBusy(false);
     }
   }
+
+  const resultRows = Object.values(results);
+  const viewedResult = viewAlgorithm ? results[viewAlgorithm] : undefined;
 
   if (!selectionReady) {
     return <p className="muted">Run variable selection first.</p>;
@@ -116,19 +130,30 @@ export default function ModelingPanel({ project, onSaved }: Props) {
 
           <hr />
           <p className="muted">
-            <strong>ML benchmark</strong> — compare against an XGBoost model on the same (raw, non-WOE) variables,
-            with SHAP feature importance. Purely a comparison; it isn't part of the deployed scorecard.
+            <strong>ML benchmark</strong> — compare against tree-ensemble challenger models (XGBoost, Random Forest,
+            LightGBM, CatBoost) on the same (raw, non-WOE) variables, with SHAP feature importance. Purely a
+            comparison; it isn't part of the deployed scorecard.
           </p>
 
           {benchmarkError && <p className="error">{benchmarkError}</p>}
 
           <div className="button-row">
+            <label>
+              Algorithm
+              <select value={algorithm} onChange={(e) => setAlgorithm(e.target.value as MLAlgorithm | "all")}>
+                {ALGORITHM_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </label>
             <button type="button" onClick={handleRunBenchmark} disabled={benchmarkBusy}>
               Run ML benchmark
             </button>
           </div>
 
-          {benchmark && (
+          {resultRows.length > 0 && (
             <>
               <table className="profile-table">
                 <thead>
@@ -147,32 +172,47 @@ export default function ModelingPanel({ project, onSaved }: Props) {
                       see Validation step
                     </td>
                   </tr>
-                  <tr>
-                    <td>XGBoost benchmark</td>
-                    <td>{benchmark.train_auc}</td>
-                    <td>{benchmark.test_auc}</td>
-                    <td>{benchmark.train_gini}</td>
-                    <td>{benchmark.test_gini}</td>
-                  </tr>
-                </tbody>
-              </table>
-
-              <table className="profile-table">
-                <thead>
-                  <tr>
-                    <th>Variable</th>
-                    <th>Mean |SHAP|</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {benchmark.feature_importance.map((f) => (
-                    <tr key={f.variable}>
-                      <td>{f.variable}</td>
-                      <td>{f.mean_abs_shap}</td>
+                  {resultRows.map((r) => (
+                    <tr key={r.algorithm}>
+                      <td>{ML_ALGORITHM_LABELS[r.algorithm as MLAlgorithm] ?? r.algorithm}</td>
+                      <td>{r.train_auc}</td>
+                      <td>{r.test_auc}</td>
+                      <td>{r.train_gini}</td>
+                      <td>{r.test_gini}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+
+              <label>
+                Feature importance for
+                <select value={viewAlgorithm ?? ""} onChange={(e) => setViewAlgorithm(e.target.value)}>
+                  {resultRows.map((r) => (
+                    <option key={r.algorithm} value={r.algorithm}>
+                      {ML_ALGORITHM_LABELS[r.algorithm as MLAlgorithm] ?? r.algorithm}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              {viewedResult && (
+                <table className="profile-table">
+                  <thead>
+                    <tr>
+                      <th>Variable</th>
+                      <th>Mean |SHAP|</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {viewedResult.feature_importance.map((f) => (
+                      <tr key={f.variable}>
+                        <td>{f.variable}</td>
+                        <td>{f.mean_abs_shap}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </>
           )}
         </>
