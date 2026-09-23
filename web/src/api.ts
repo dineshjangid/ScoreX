@@ -1,8 +1,12 @@
 // Must share a host (not just resolve to the same machine) with the
 // frontend origin for the session cookie to be sent: browsers treat
 // "localhost" and "127.0.0.1" as different sites for SameSite=Lax
-// cookie purposes, even though both point at loopback.
-export const API_BASE = "http://localhost:8000/api";
+// cookie purposes, even though both point at loopback. In production
+// (served by the same reverse proxy as the API — see DEPLOY.md) this
+// defaults to a same-origin relative path; local dev keeps calling
+// uvicorn directly on :8000 since Vite's dev server runs on a different
+// port. Override at build time with VITE_API_BASE for any other shape.
+export const API_BASE = import.meta.env.VITE_API_BASE ?? (import.meta.env.DEV ? "http://localhost:8000/api" : "/api");
 
 export type ScorecardType = "application" | "behavioural" | "decision_tree";
 export type StepStatus = "not_started" | "in_progress" | "complete";
@@ -668,6 +672,7 @@ export const api = {
     }),
   getTreeRules: (projectId: string) => request<LeafRuleRow[]>(`/projects/${projectId}/decision_tree/rules`),
   getMe: () => request<AuthUser>("/auth/me"),
+  getAuthConfig: () => request<{ saml_enabled: boolean }>("/auth/config"),
   login: (username: string, password: string) =>
     request<AuthUser>("/auth/login", { method: "POST", body: JSON.stringify({ username, password }) }),
   register: (username: string, password: string, role: UserRole) =>

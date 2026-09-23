@@ -1,0 +1,45 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    restart: unless-stopped
+    environment:
+      CREDITTOOL_DATA_DIR: /data
+      CORS_ORIGINS: ${CORS_ORIGINS:-https://${SITE_ADDRESS}}
+      SAML_SP_ENTITY_ID: ${SAML_SP_ENTITY_ID:-}
+      SAML_SP_ACS_URL: ${SAML_SP_ACS_URL:-}
+      SAML_IDP_ENTITY_ID: ${SAML_IDP_ENTITY_ID:-}
+      SAML_IDP_SSO_URL: ${SAML_IDP_SSO_URL:-}
+      SAML_IDP_X509_CERT: ${SAML_IDP_X509_CERT:-}
+      SAML_GROUP_ATTRIBUTE: ${SAML_GROUP_ATTRIBUTE:-}
+      SAML_GROUP_ANALYST_ID: ${SAML_GROUP_ANALYST_ID:-}
+      SAML_GROUP_VALIDATOR_ID: ${SAML_GROUP_VALIDATOR_ID:-}
+      SAML_GROUP_APPROVER_ID: ${SAML_GROUP_APPROVER_ID:-}
+      SAML_DEFAULT_ROLE: ${SAML_DEFAULT_ROLE:-}
+    volumes:
+      - csw_data:/data
+    # No `ports:` here on purpose — the api container is only reachable
+    # from other containers on this compose network (i.e. through the
+    # web/Caddy reverse proxy), never directly from the host or LAN.
+
+  web:
+    build:
+      context: web
+      args:
+        VITE_API_BASE: /api
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "443:443"
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:?Set SITE_ADDRESS in .env, e.g. csw.internal.company.com}
+      TLS_CERT_FILE: /certs/tls.crt
+      TLS_KEY_FILE: /certs/tls.key
+    volumes:
+      - ${TLS_CERT_PATH:?Set TLS_CERT_PATH in .env to your internal-CA-issued cert file}:/certs/tls.crt:ro
+      - ${TLS_KEY_PATH:?Set TLS_KEY_PATH in .env to that cert's private key file}:/certs/tls.key:ro
+
+volumes:
+  csw_data:

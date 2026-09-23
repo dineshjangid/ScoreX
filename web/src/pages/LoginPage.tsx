@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { api } from "../api";
+import { useEffect, useState } from "react";
+import { API_BASE, api } from "../api";
 import type { AuthUser, UserRole } from "../api";
 
 interface Props {
@@ -19,6 +19,14 @@ export default function LoginPage({ onLoggedIn }: Props) {
   const [role, setRole] = useState<UserRole>("analyst");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [samlEnabled, setSamlEnabled] = useState(false);
+
+  useEffect(() => {
+    api
+      .getAuthConfig()
+      .then((c) => setSamlEnabled(c.saml_enabled))
+      .catch(() => setSamlEnabled(false));
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -42,6 +50,19 @@ export default function LoginPage({ onLoggedIn }: Props) {
       </header>
 
       <section className="card home-module">
+        {samlEnabled && (
+          <>
+            <div className="button-row" style={{ marginBottom: 16 }}>
+              <a className="button-like" href={`${API_BASE}/auth/saml/login`} style={{ flex: 1, textAlign: "center" }}>
+                Sign in with Microsoft
+              </a>
+            </div>
+            <p className="muted" style={{ marginBottom: 16 }}>
+              or sign in with a local account
+            </p>
+          </>
+        )}
+
         <div className="button-row" style={{ marginBottom: 16 }}>
           <button type="button" className={mode === "login" ? "mode-active" : ""} onClick={() => setMode("login")}>
             Log in

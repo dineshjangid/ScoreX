@@ -40,3 +40,8 @@ source .venv/bin/activate
 pip install -e ./engine[dev]
 python -m pytest tests/
 ```
+
+## Deploying
+
+See [`DEPLOY.md`](DEPLOY.md) for running this on-prem with Docker, HTTPS
+via your internal CA, and Azure AD SAML SSO.

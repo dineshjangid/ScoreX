@@ -1,0 +1,16 @@
+{$SITE_ADDRESS} {
+	# Cert issued by your org's internal CA — see DEPLOY.md. This
+	# disables Caddy's automatic ACME/Let's Encrypt behavior, which
+	# wouldn't work on a private network anyway.
+	tls {$TLS_CERT_FILE} {$TLS_KEY_FILE}
+
+	handle /api/* {
+		reverse_proxy api:8000
+	}
+
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+}

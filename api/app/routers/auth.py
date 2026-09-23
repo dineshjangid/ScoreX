@@ -4,6 +4,7 @@ from fastapi import APIRouter, Cookie, Depends, HTTPException, Response
 from pydantic import BaseModel
 from sqlalchemy import select
 
+from .. import saml_config
 from ..auth import (
     SESSION_COOKIE_NAME,
     VALID_ROLES,
@@ -13,6 +14,7 @@ from ..auth import (
     get_current_user,
     hash_password,
     new_user_id,
+    set_session_cookie,
     verify_password,
 )
 from ..db import UserRecord, get_session, now_iso
@@ -37,15 +39,13 @@ class UserOut(BaseModel):
     role: str
 
 
-def _set_session_cookie(response: Response, token: str) -> None:
-    response.set_cookie(
-        key=SESSION_COOKIE_NAME,
-        value=token,
-        httponly=True,
-        samesite="lax",
-        max_age=60 * 60 * 24 * 14,
-        path="/",
-    )
+class AuthConfigOut(BaseModel):
+    saml_enabled: bool
+
+
+@router.get("/config", response_model=AuthConfigOut)
+def auth_config() -> AuthConfigOut:
+    return AuthConfigOut(saml_enabled=saml_config.SAML_ENABLED)
 
 
 @router.post("/register", response_model=UserOut)
@@ -73,7 +73,7 @@ def register(body: RegisterIn, response: Response) -> UserOut:
         user_id, user_role = user.id, user.role
 
     token, _ = create_session(user_id)
-    _set_session_cookie(response, token)
+    set_session_cookie(response, token)
     return UserOut(id=user_id, username=username, role=user_role)
 
 
@@ -83,12 +83,12 @@ def login(body: LoginIn, response: Response) -> UserOut:
         user = session.execute(
             select(UserRecord).where(UserRecord.username == body.username.strip())
         ).scalar_one_or_none()
-        if not user or not verify_password(body.password, user.password_hash):
+        if not user or not user.password_hash or not verify_password(body.password, user.password_hash):
             raise HTTPException(status_code=401, detail="Invalid username or password")
         user_id, username, role = user.id, user.username, user.role
 
     token, _ = create_session(user_id)
-    _set_session_cookie(response, token)
+    set_session_cookie(response, token)
     return UserOut(id=user_id, username=username, role=role)
 
 

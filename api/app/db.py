@@ -71,10 +71,14 @@ class UserRecord(Base):
     __tablename__ = "users"
 
     id = Column(String, primary_key=True)
+    # For a local account, the chosen username; for an SSO account, the
+    # IdP-asserted email (NameID) — either way, the unique login identity.
     username = Column(String, nullable=False, unique=True, index=True)
-    password_hash = Column(String, nullable=False)
+    # Null for SSO users, who never set a local password.
+    password_hash = Column(String, nullable=True)
     role = Column(String, nullable=False)  # "analyst" | "validator" | "approver"
     created_at = Column(String, nullable=False)
+    auth_source = Column(String, nullable=False, default="local")  # "local" | "saml"
 
 
 class SessionRecord(Base):
@@ -105,16 +109,18 @@ class AuditLogRecord(Base):
 
 
 def _add_missing_columns() -> None:
-    """Best-effort dev-time migration: add any ProjectRecord columns that
-    don't exist yet on an already-created `projects` table. Adequate for a
-    local single-user SQLite file; swap for Alembic if/when this moves to
+    """Best-effort dev-time migration: add any columns a model has that
+    don't exist yet on an already-created table. Adequate for a local
+    single-user SQLite file; swap for Alembic if/when this moves to
     Postgres for multi-user.
     """
     with engine.connect() as conn:
-        existing = {row[1] for row in conn.exec_driver_sql("PRAGMA table_info(projects)").fetchall()}
-        for column in ProjectRecord.__table__.columns:
-            if column.name not in existing:
-                conn.exec_driver_sql(f"ALTER TABLE projects ADD COLUMN {column.name} {column.type}")
+        for table in (ProjectRecord.__table__, UserRecord.__table__):
+            existing = {row[1] for row in conn.exec_driver_sql(f"PRAGMA table_info({table.name})").fetchall()}
+            for column in table.columns:
+                if column.name not in existing:
+                    default = "" if column.default is None else f" DEFAULT '{column.default.arg}'"
+                    conn.exec_driver_sql(f"ALTER TABLE {table.name} ADD COLUMN {column.name} {column.type}{default}")
         conn.commit()
 
 

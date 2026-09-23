@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import os
+
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from . import saml_config
 from .auth import get_current_user
 from .db import init_db
 from .routers import (
@@ -28,9 +31,14 @@ from .routers import (
 
 app = FastAPI(title="CSW (Credit Scorecards Workbench) API", version="0.1.0")
 
+# Behind a reverse proxy that serves the frontend and API from the same
+# origin (the Docker/on-prem setup — see DEPLOY.md), CORS never applies.
+# This only matters for local dev, where the Vite dev server runs on a
+# different port than uvicorn.
+cors_origins = os.environ.get("CORS_ORIGINS", "http://localhost:5173").split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -41,6 +49,10 @@ app.add_middleware(
 protected = [Depends(get_current_user)]
 
 app.include_router(auth.router)
+if saml_config.SAML_ENABLED:
+    from .routers import saml_auth
+
+    app.include_router(saml_auth.router)
 app.include_router(projects.router, dependencies=protected)
 app.include_router(data.router, dependencies=protected)
 app.include_router(target.router, dependencies=protected)

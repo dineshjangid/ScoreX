@@ -15,7 +15,8 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
 import bcrypt
-from fastapi import Cookie, HTTPException, status
+from fastapi import Cookie, HTTPException, Response, status
+from sqlalchemy import select
 
 from .db import SessionRecord, UserRecord, get_session, now_iso
 
@@ -69,6 +70,42 @@ def delete_session(token: str) -> None:
 
 def new_user_id() -> str:
     return str(uuid.uuid4())
+
+
+def set_session_cookie(response: Response, token: str) -> None:
+    response.set_cookie(
+        key=SESSION_COOKIE_NAME,
+        value=token,
+        httponly=True,
+        samesite="lax",
+        max_age=int(SESSION_LIFETIME.total_seconds()),
+        path="/",
+    )
+
+
+def upsert_saml_user(email: str, role: str) -> str:
+    """Find-or-create the user for an SSO login. Role is re-synced from the
+    IdP's group claim on every login, so a group membership change takes
+    effect the next time the person signs in rather than needing a manual
+    fix in-app.
+    """
+    with get_session() as session:
+        user = session.execute(select(UserRecord).where(UserRecord.username == email)).scalar_one_or_none()
+        if user is None:
+            user = UserRecord(
+                id=new_user_id(),
+                username=email,
+                password_hash=None,
+                role=role,
+                auth_source="saml",
+                created_at=now_iso(),
+            )
+            session.add(user)
+        else:
+            user.role = role
+            user.auth_source = "saml"
+        session.commit()
+        return user.id
 
 
 def get_current_user(session_token: str | None = Cookie(default=None, alias=SESSION_COOKIE_NAME)) -> AuthUser:
