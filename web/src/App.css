@@ -416,6 +416,29 @@ button.danger:hover:not(:disabled) {
   font-size: 12px;
 }
 
+.project-filters {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.project-filters input {
+  flex: 1;
+  min-width: 180px;
+}
+
+.project-filters input,
+.project-filters select {
+  font: inherit;
+  font-weight: 400;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text-h);
+}
+
 .project-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
