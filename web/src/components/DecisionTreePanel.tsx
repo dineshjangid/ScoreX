@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { API_BASE, api } from "../api";
 import type { ColumnProfile, DecisionTreeArtifact, LeafRuleRow, NodeSplitInput, ProjectDetail, TreeNode } from "../api";
+import HelpIcon from "./HelpIcon";
 import TreeDiagram from "./TreeDiagram";
 
 interface Props {
@@ -207,28 +208,39 @@ export default function DecisionTreePanel({ project, onSaved }: Props) {
 
   return (
     <div className="ingestion-panel">
-      <label>
-        Max depth
-        <input type="number" min="1" max="10" value={maxDepth} onChange={(e) => setMaxDepth(parseInt(e.target.value, 10))} />
-      </label>
-      <label>
-        Min leaf size (fraction of training sample)
-        <input
-          type="number"
-          step="0.01"
-          min="0.01"
-          max="0.3"
-          value={minLeafFrac}
-          onChange={(e) => setMinLeafFrac(parseFloat(e.target.value))}
-        />
-      </label>
-      <label>
-        Splitting criterion
-        <select value={criterion} onChange={(e) => setCriterion(e.target.value as "gini" | "entropy")}>
-          <option value="gini">Gini impurity</option>
-          <option value="entropy">Entropy</option>
-        </select>
-      </label>
+      <div className="field-row">
+        <label>
+          <span className="field-label-row">
+            Max depth
+            <HelpIcon text="How many splits deep the tree can grow from the root to any leaf. Higher = can capture more complex patterns, but risks overfitting and harder-to-explain policies. Typical range: 2-5." />
+          </span>
+          <input type="number" min="1" max="10" value={maxDepth} onChange={(e) => setMaxDepth(parseInt(e.target.value, 10))} />
+        </label>
+        <label>
+          <span className="field-label-row">
+            Min leaf size
+            <HelpIcon text="Smallest fraction of the training sample a leaf is allowed to have. A split that would create a smaller leaf is rejected. Higher = fewer, larger, more statistically stable segments." />
+          </span>
+          <input
+            type="number"
+            step="0.01"
+            min="0.01"
+            max="0.3"
+            value={minLeafFrac}
+            onChange={(e) => setMinLeafFrac(parseFloat(e.target.value))}
+          />
+        </label>
+        <label>
+          <span className="field-label-row">
+            Criterion
+            <HelpIcon text="How each candidate split is scored. Gini impurity and entropy both measure how mixed good/bad outcomes are in a node and usually pick similar splits; Gini is the traditional CART default." />
+          </span>
+          <select value={criterion} onChange={(e) => setCriterion(e.target.value as "gini" | "entropy")}>
+            <option value="gini">Gini impurity</option>
+            <option value="entropy">Entropy</option>
+          </select>
+        </label>
+      </div>
 
       {error && <p className="error">{error}</p>}
 
