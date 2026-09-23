@@ -37,7 +37,7 @@ export default function LoginPage({ onLoggedIn }: Props) {
   return (
     <div className="home-shell" style={{ maxWidth: 420 }}>
       <header className="home-header">
-        <h1 className="page-title">ScoreX</h1>
+        <h1 className="page-title">CSW</h1>
         <p className="muted">Sign in to build, validate, and export credit risk scorecards.</p>
       </header>
 

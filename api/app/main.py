@@ -26,7 +26,7 @@ from .routers import (
     versions,
 )
 
-app = FastAPI(title="Credit Risk Scorecard Tool API", version="0.1.0")
+app = FastAPI(title="CSW (Credit Scorecards Workbench) API", version="0.1.0")
 
 app.add_middleware(
     CORSMiddleware,

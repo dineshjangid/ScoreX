@@ -1,4 +1,4 @@
-# Credit Risk Scorecard Development Tool
+# CSW — Credit Scorecards Workbench
 
 A tool for building, validating, and documenting credit risk scorecards
 (Application and Behavioural, with ML models for benchmarking).

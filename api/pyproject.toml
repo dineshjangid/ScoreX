@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "credittool-api"
 version = "0.1.0"
-description = "FastAPI backend for the Credit Risk Scorecard Development Tool"
+description = "FastAPI backend for CSW (Credit Scorecards Workbench)"
 requires-python = ">=3.11"
 dependencies = [
     "credittool-engine",

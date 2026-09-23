@@ -58,8 +58,8 @@ export default function ProjectList() {
     <div className="home-shell">
       <header className="home-header home-header-row">
         <div>
-          <h1 className="page-title">ScoreX</h1>
-          <p className="muted">Build, validate, and export credit risk scorecards.</p>
+          <h1 className="page-title">CSW</h1>
+          <p className="muted">Credit Scorecards Workbench — build, validate, and export credit risk scorecards.</p>
         </div>
         <UserMenu />
       </header>
