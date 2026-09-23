@@ -3,6 +3,7 @@ import { STEP_LABELS } from "../api";
 import BinningPanel from "../components/BinningPanel";
 import DataIngestionPanel from "../components/DataIngestionPanel";
 import DecisionTreePanel from "../components/DecisionTreePanel";
+import FinalModelPanel from "../components/FinalModelPanel";
 import ModelingPanel from "../components/ModelingPanel";
 import ReasonCodesPanel from "../components/ReasonCodesPanel";
 import ReportingPanel from "../components/ReportingPanel";
@@ -36,6 +37,8 @@ export default function StepPage() {
         return <SelectionPanel project={project} onSaved={setProject} />;
       case "modeling":
         return <ModelingPanel project={project} onSaved={setProject} />;
+      case "final_model_selection":
+        return <FinalModelPanel project={project} onSaved={setProject} />;
       case "scaling":
         return <ScalingPanel project={project} onSaved={setProject} />;
       case "validation":

@@ -8,7 +8,8 @@ interface Props {
 }
 
 export default function ScalingPanel({ project, onSaved }: Props) {
-  const existing = project.artifacts.scaling;
+  const rawExisting = project.artifacts.scaling;
+  const existing = rawExisting && "config" in rawExisting ? rawExisting : undefined;
   const [pdo, setPdo] = useState(existing?.config.pdo ?? 20);
   const [baseScore, setBaseScore] = useState(existing?.config.base_score ?? 600);
   const [baseOdds, setBaseOdds] = useState(existing?.config.base_odds ?? 50);
@@ -17,6 +18,7 @@ export default function ScalingPanel({ project, onSaved }: Props) {
   const [busy, setBusy] = useState(false);
 
   const modelingReady = project.step_status["modeling"] === "complete";
+  const finalModel = project.artifacts.final_model_selection;
 
   async function handleRun() {
     setBusy(true);
@@ -34,6 +36,15 @@ export default function ScalingPanel({ project, onSaved }: Props) {
 
   if (!modelingReady) {
     return <p className="muted">Fit a model first.</p>;
+  }
+
+  if (finalModel && finalModel.source !== "logistic") {
+    return (
+      <p className="muted">
+        Not applicable — the final model is {finalModel.algorithm}. Points-based scaling is only used for the
+        logistic regression scorecard; skip ahead to Validation.
+      </p>
+    );
   }
 
   return (

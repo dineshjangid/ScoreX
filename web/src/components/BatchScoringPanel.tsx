@@ -15,6 +15,7 @@ export default function BatchScoringPanel({ project, onSaved }: Props) {
   const fileInput = useRef<HTMLInputElement>(null);
 
   const scalingReady = project.step_status["scaling"] === "complete";
+  const isMlFinal = project.artifacts.final_model_selection?.source === "ml_benchmark";
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -43,7 +44,7 @@ export default function BatchScoringPanel({ project, onSaved }: Props) {
     <div className="ingestion-panel">
       <p className="muted">
         Upload a new file of applicants (no target/outcome column needed) to score them with the finished
-        scorecard and get reason codes back.
+        {isMlFinal ? " model" : " scorecard"} and get reason codes back.
       </p>
 
       <label>

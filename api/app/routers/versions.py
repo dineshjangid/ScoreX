@@ -10,7 +10,7 @@ from credittool_engine.project import StepName
 
 from ..auth import AuthUser, get_current_user
 from ..db import ModelVersionRecord, get_session, now_iso
-from ..repo import get_record_or_404, log_audit, record_to_project
+from ..repo import effective_final_model_artifact, get_record_or_404, log_audit, record_to_project
 from ..schemas import VersionCreateIn, VersionDetail, VersionSummary
 
 router = APIRouter(prefix="/api/projects/{project_id}/versions", tags=["versions"])
@@ -21,6 +21,7 @@ SNAPSHOT_STEPS = [
     StepName.BINNING,
     StepName.VARIABLE_SELECTION,
     StepName.MODELING,
+    StepName.FINAL_MODEL_SELECTION,
     StepName.SCALING,
     StepName.VALIDATION,
 ]
@@ -43,7 +44,7 @@ def _to_summary(v: ModelVersionRecord) -> VersionSummary:
         train_auc=train.get("auc") if train else None,
         train_ks=train.get("ks") if train else None,
         train_gini=train.get("gini") if train else None,
-        score_range=f"{scaling['min_score']}–{scaling['max_score']}" if scaling else None,
+        score_range=f"{scaling['min_score']}–{scaling['max_score']}" if scaling and "min_score" in scaling else None,
     )
 
 
@@ -61,9 +62,11 @@ def create_version(project_id: str, body: VersionCreateIn, current_user: AuthUse
         project = record_to_project(record)
 
         modeling = project.artifacts.get(StepName.MODELING.value)
-        scaling = project.artifacts.get(StepName.SCALING.value)
-        if not modeling or not scaling:
-            raise HTTPException(status_code=400, detail="Fit a model and build the scorecard before saving a version")
+        final_model = effective_final_model_artifact(project)
+        if not modeling or not final_model:
+            raise HTTPException(status_code=400, detail="Fit a model and select a final model before saving a version")
+        if final_model["source"] == "logistic" and not project.artifacts.get(StepName.SCALING.value):
+            raise HTTPException(status_code=400, detail="Build the scorecard before saving a version")
 
         snapshot = {step.value: project.artifacts.get(step.value) for step in SNAPSHOT_STEPS}
         snapshot["ml_benchmark"] = project.artifacts.get("ml_benchmark")

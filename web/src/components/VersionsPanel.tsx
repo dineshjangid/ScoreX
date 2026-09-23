@@ -10,6 +10,17 @@ function fmt(v: number | null): string {
   return v === null || v === undefined ? "—" : String(v);
 }
 
+function scalingConfigLabel(scaling: VersionDetail["snapshot"]["scaling"]): string {
+  if (!scaling || !("config" in scaling)) return "—";
+  return `${scaling.config.pdo} / ${scaling.config.base_score} / ${scaling.config.base_odds}`;
+}
+
+function finalModelLabel(snapshot: VersionDetail["snapshot"]): string {
+  const fm = snapshot.final_model_selection;
+  if (!fm) return "—";
+  return fm.source === "logistic" ? "Logistic" : fm.algorithm;
+}
+
 export default function VersionsPanel({ project }: Props) {
   const [versions, setVersions] = useState<VersionSummary[] | null>(null);
   const [label, setLabel] = useState("");
@@ -210,17 +221,14 @@ export default function VersionsPanel({ project }: Props) {
               <td>{compareDetails[1].score_range ?? "—"}</td>
             </tr>
             <tr>
+              <td>Final model</td>
+              <td>{finalModelLabel(compareDetails[0].snapshot)}</td>
+              <td>{finalModelLabel(compareDetails[1].snapshot)}</td>
+            </tr>
+            <tr>
               <td>PDO / base score / base odds</td>
-              <td>
-                {compareDetails[0].snapshot.scaling
-                  ? `${compareDetails[0].snapshot.scaling.config.pdo} / ${compareDetails[0].snapshot.scaling.config.base_score} / ${compareDetails[0].snapshot.scaling.config.base_odds}`
-                  : "—"}
-              </td>
-              <td>
-                {compareDetails[1].snapshot.scaling
-                  ? `${compareDetails[1].snapshot.scaling.config.pdo} / ${compareDetails[1].snapshot.scaling.config.base_score} / ${compareDetails[1].snapshot.scaling.config.base_odds}`
-                  : "—"}
-              </td>
+              <td>{scalingConfigLabel(compareDetails[0].snapshot.scaling)}</td>
+              <td>{scalingConfigLabel(compareDetails[1].snapshot.scaling)}</td>
             </tr>
           </tbody>
         </table>

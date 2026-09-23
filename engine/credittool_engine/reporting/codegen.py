@@ -86,3 +86,63 @@ def generate_scoring_sql(scorecard: dict, binning_variables: dict, table: str = 
 
     expr = " +\n  ".join(parts)
     return f"SELECT *,\n  {expr} AS credit_score\nFROM {table};"
+
+
+def generate_ml_scoring_python(
+    algorithm: str,
+    variables: list[str],
+    categories: dict[str, list[str]],
+    mode: str,
+) -> str:
+    """Standalone scoring script for an ML final model (XGBoost/Random
+    Forest/LightGBM/CatBoost). Unlike the logistic scorecard's points
+    formula, this can't be inlined as arithmetic — it needs the actual
+    fitted model object, downloaded separately as final_model.joblib and
+    expected alongside this script. What IS generated here is the exact
+    feature-encoding this project's final model was trained on (so new
+    data is encoded identically) plus the call to score it.
+    """
+    lines = [
+        "import joblib",
+        "import pandas as pd",
+        "",
+        f"# Fitted {algorithm} model, downloaded from this project's Reporting step",
+        '# ("Download model file") and placed next to this script.',
+        'MODEL_PATH = "final_model.joblib"',
+        "",
+        f"VARIABLES = {variables!r}",
+        "",
+        "# Categories seen at training time for each non-numeric variable —",
+        "# needed to encode new data exactly the way the model was trained,",
+        "# including mapping any category unseen at training time to \"missing\".",
+        f"CATEGORIES = {categories!r}",
+        "",
+        f'FEATURE_MODE = {mode!r}  # "category" | "raw_str" | "ordinal"',
+        "",
+        "",
+        "def _encode(df: pd.DataFrame) -> pd.DataFrame:",
+        "    X = df[VARIABLES].copy()",
+        "    for col, cats in CATEGORIES.items():",
+        "        col_str = X[col].astype(str)",
+        "        if FEATURE_MODE == \"raw_str\":",
+        "            X[col] = col_str",
+        "        else:",
+        "            # Map anything unseen at training time to NaN before",
+        "            # categorizing, rather than passing an out-of-vocabulary",
+        "            # value straight to pd.Categorical.",
+        "            known = col_str.where(col_str.isin(cats))",
+        "            cat = pd.Categorical(known, categories=cats)",
+        "            X[col] = cat if FEATURE_MODE == \"category\" else cat.codes",
+        "    return X",
+        "",
+        "",
+        "def score_applications(df: pd.DataFrame) -> pd.Series:",
+        '    """Returns a 0-1000 safety score per row (higher = safer), the',
+        "    same convention as this tool's points scorecards.",
+        '    """',
+        "    model = joblib.load(MODEL_PATH)",
+        "    p_bad = model.predict_proba(_encode(df))[:, 1]",
+        "    score = pd.Series((1 - p_bad) * 1000, index=df.index)",
+        "    return score.round().astype(int)",
+    ]
+    return "\n".join(lines)

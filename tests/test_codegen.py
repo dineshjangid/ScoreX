@@ -1,9 +1,14 @@
 import numpy as np
 import pandas as pd
 
-from credittool_engine.reporting.codegen import generate_scoring_python, generate_scoring_sql
+from credittool_engine.modeling import categorical_categories, fit_model
+from credittool_engine.reporting.codegen import (
+    generate_ml_scoring_python,
+    generate_scoring_python,
+    generate_scoring_sql,
+)
 from credittool_engine.scaling import ScalingConfig, build_scorecard
-from credittool_engine.scoring import compute_scores
+from credittool_engine.scoring import compute_ml_scores, compute_scores
 
 
 def _fixture():
@@ -74,3 +79,37 @@ def test_generated_sql_escapes_quotes_in_category_values():
     binning_variables["segment"]["categories_map"]["O'Brien"] = "Other"
     sql = generate_scoring_sql(scorecard, binning_variables)
     assert "O''Brien" in sql
+
+
+def test_generated_ml_python_matches_compute_ml_scores(tmp_path):
+    rng = np.random.default_rng(0)
+    n = 300
+    income = rng.normal(50000, 15000, n)
+    segment = rng.choice(["A", "B", "C"], n)
+    bad = (rng.uniform(size=n) < 0.3).astype(float)
+    train_df = pd.DataFrame({"income": income, "segment": segment})
+
+    variables = ["income", "segment"]
+    algorithm = "lightgbm"
+    model, categories = fit_model(train_df, pd.Series(bad), variables, algorithm)
+
+    from credittool_engine.modeling import FEATURE_MODE
+    from credittool_engine.modeling.persistence import save_model
+
+    code = generate_ml_scoring_python(algorithm, variables, categories, FEATURE_MODE[algorithm])
+    model_path = tmp_path / "final_model.joblib"
+    save_model(model, model_path)
+
+    namespace: dict = {}
+    exec(compile(code, "score_application.py", "exec"), namespace)
+    namespace["MODEL_PATH"] = str(model_path)
+    score_applications = namespace["score_applications"]
+
+    new_df = pd.DataFrame(
+        {"income": [10000.0, 90000.0, 50000.0], "segment": ["A", "B", "unseen_category"]}
+    )
+    actual = score_applications(new_df)
+    expected = compute_ml_scores(new_df, variables, model, categories, algorithm)
+
+    assert isinstance(actual, pd.Series)
+    assert actual.tolist() == expected.tolist()

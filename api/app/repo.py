@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 import json
+import os
 import uuid
+from pathlib import Path
 
 import pandas as pd
 from fastapi import HTTPException
@@ -12,7 +14,7 @@ from credittool_engine.binning import apply_binning
 from credittool_engine.project import Project, StepName, StepStatus, steps_for
 
 from .auth import AuthUser
-from .db import AuditLogRecord, ProjectRecord, now_iso
+from .db import UPLOADS_DIR, AuditLogRecord, ProjectRecord, now_iso
 
 
 def record_to_project(record: ProjectRecord) -> Project:
@@ -32,6 +34,34 @@ def invalidate_downstream(project: Project, record: ProjectRecord, from_step: St
         project.artifacts.pop(step.value, None)
     if StepName.SAMPLING in reset_steps:
         record.splits_path = None
+    if StepName.FINAL_MODEL_SELECTION in reset_steps:
+        path = final_model_path(record.id)
+        if os.path.exists(path):
+            os.remove(path)
+
+
+def final_model_path(project_id: str) -> Path:
+    """Where a project's persisted fitted ML final model (if any) lives —
+    a fixed, deterministic path, so picking a new algorithm just overwrites
+    it and nothing needs to track the path separately in the DB."""
+    return Path(UPLOADS_DIR) / project_id / "final_model.joblib"
+
+
+def effective_final_model_artifact(project: Project) -> dict | None:
+    """The project's final-model selection, or — for a project built before
+    this step existed — an implicit "logistic" selection synthesized from a
+    completed modeling+scaling build, so existing scorecards built under
+    the old (logistic-only) flow keep working without redoing everything.
+    """
+    explicit = project.artifacts.get(StepName.FINAL_MODEL_SELECTION.value)
+    if explicit:
+        return explicit
+
+    modeling = project.artifacts.get(StepName.MODELING.value)
+    scaling = project.artifacts.get(StepName.SCALING.value)
+    if modeling and scaling and "config" in scaling:
+        return {"source": "logistic", "algorithm": "logistic", "variables": modeling["variables"], "metrics": None}
+    return None
 
 
 def get_record_or_404(session: Session, project_id: str) -> ProjectRecord:

@@ -204,6 +204,26 @@ export interface ModelArtifact {
   fitted_params: Record<string, number>;
 }
 
+export interface FinalModelCandidate {
+  algorithm: string;
+  train_auc: number;
+  test_auc: number;
+  train_gini: number;
+  test_gini: number;
+}
+
+export interface FinalModelSelection {
+  source: "logistic" | "ml_benchmark";
+  algorithm: string;
+  variables: string[];
+  metrics: FinalModelCandidate | null;
+}
+
+export interface FinalModelStatus {
+  current: FinalModelSelection | null;
+  candidates: Record<string, FinalModelCandidate>;
+}
+
 export interface ScalingConfigInput {
   pdo: number;
   base_score: number;
@@ -244,6 +264,11 @@ export interface Scorecard {
 
 export interface ScalingArtifact extends Scorecard {
   config: ScalingConfigInput;
+}
+
+export interface ScalingNotApplicable {
+  not_applicable: true;
+  reason: string;
 }
 
 export interface SampleMetrics {
@@ -385,7 +410,8 @@ export interface ProjectDetail extends ProjectSummary {
     binning?: BinningArtifact;
     variable_selection?: SelectionArtifact;
     modeling?: ModelArtifact;
-    scaling?: ScalingArtifact;
+    final_model_selection?: FinalModelSelection;
+    scaling?: ScalingArtifact | ScalingNotApplicable;
     validation?: ValidationArtifact;
     reason_codes?: ReasonCodesArtifact;
     ml_benchmark?: { config: MLBenchmarkConfigInput; results: Record<string, MLBenchmarkResult> };
@@ -418,7 +444,8 @@ export interface VersionDetail extends VersionSummary {
     binning?: BinningArtifact;
     variable_selection?: SelectionArtifact;
     modeling?: ModelArtifact;
-    scaling?: ScalingArtifact;
+    final_model_selection?: FinalModelSelection;
+    scaling?: ScalingArtifact | ScalingNotApplicable;
     validation?: ValidationArtifact;
     ml_benchmark?: { config: MLBenchmarkConfigInput; results: Record<string, MLBenchmarkResult> } | null;
   };
@@ -466,6 +493,7 @@ export const STEP_ORDER = [
   "binning",
   "variable_selection",
   "modeling",
+  "final_model_selection",
   "scaling",
   "validation",
   "reason_codes",
@@ -487,6 +515,7 @@ export const STEP_LABELS: Record<string, string> = {
   binning: "Binning & WOE/IV",
   variable_selection: "Variable Selection",
   modeling: "Model Building",
+  final_model_selection: "Final Model Selection",
   scaling: "Scaling to Points",
   validation: "Validation",
   reason_codes: "Reason Codes",
@@ -571,6 +600,12 @@ export const api = {
     request<ModelArtifact>(`/projects/${projectId}/modeling`, {
       method: "POST",
       body: JSON.stringify(body),
+    }),
+  getFinalModelStatus: (projectId: string) => request<FinalModelStatus>(`/projects/${projectId}/final_model`),
+  setFinalModel: (projectId: string, algorithm: string) =>
+    request<FinalModelSelection>(`/projects/${projectId}/final_model`, {
+      method: "POST",
+      body: JSON.stringify({ algorithm }),
     }),
   runScaling: (projectId: string, body: ScalingConfigInput) =>
     request<Scorecard>(`/projects/${projectId}/scaling`, {

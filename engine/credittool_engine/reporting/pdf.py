@@ -66,6 +66,9 @@ def build_pdf_report(data: dict) -> bytes:
         story.append(_table(["Variable", "Kind", "IV", "N bins"], rows))
         story.append(Spacer(1, 12))
 
+    final_model = data.get("final_model") or {}
+    is_ml_final = final_model.get("source") == "ml_benchmark"
+
     model = data.get("modeling", {})
     if model:
         story.append(Paragraph("Logistic Regression Model", styles["Heading2"]))
@@ -78,21 +81,46 @@ def build_pdf_report(data: dict) -> bytes:
         story.append(Paragraph(f"Pseudo R²: {model.get('pseudo_r2')} — N obs: {model.get('n_obs')}", styles["Normal"]))
         story.append(Spacer(1, 12))
 
-    scaling = data.get("scaling", {})
-    if scaling:
-        story.append(Paragraph("Points Scorecard", styles["Heading2"]))
+    if is_ml_final:
+        ml_result = data.get("ml_benchmark_result") or {}
+        story.append(Paragraph("Final Model", styles["Heading2"]))
         story.append(
             Paragraph(
-                f"Base points: {scaling.get('base_points')} — Score range: {scaling.get('min_score')}–{scaling.get('max_score')}",
+                f"Deployed final model: {final_model.get('algorithm')} (not the logistic scorecard above) — "
+                "no points table; scored directly from the model's predicted probability of default.",
                 styles["Normal"],
             )
         )
-        rows = []
-        for v in scaling.get("variables", []):
-            for b in v["bins"]:
-                rows.append([v["variable"], b["label"], b["woe"], b["points"]])
-        story.append(_table(["Variable", "Bin", "WOE", "Points"], rows))
+        story.append(
+            _table(
+                ["Sample", "AUC", "Gini"],
+                [
+                    ["train", ml_result.get("train_auc"), ml_result.get("train_gini")],
+                    ["test", ml_result.get("test_auc"), ml_result.get("test_gini")],
+                ],
+            )
+        )
+        importance_rows = [[f["variable"], f["mean_abs_shap"]] for f in ml_result.get("feature_importance", [])]
+        if importance_rows:
+            story.append(Spacer(1, 6))
+            story.append(_table(["Variable", "Mean |SHAP|"], importance_rows))
         story.append(Spacer(1, 12))
+    else:
+        scaling = data.get("scaling", {})
+        if scaling:
+            story.append(Paragraph("Points Scorecard", styles["Heading2"]))
+            story.append(
+                Paragraph(
+                    f"Base points: {scaling.get('base_points')} — Score range: {scaling.get('min_score')}–{scaling.get('max_score')}",
+                    styles["Normal"],
+                )
+            )
+            rows = []
+            for v in scaling.get("variables", []):
+                for b in v["bins"]:
+                    rows.append([v["variable"], b["label"], b["woe"], b["points"]])
+            story.append(_table(["Variable", "Bin", "WOE", "Points"], rows))
+            story.append(Spacer(1, 12))
 
     validation = data.get("validation")
     if validation:

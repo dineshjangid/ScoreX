@@ -12,6 +12,7 @@ from .routers import (
     binning,
     data,
     decision_tree,
+    final_model,
     ml_benchmark,
     modeling,
     projects,
@@ -48,6 +49,7 @@ app.include_router(binning.router, dependencies=protected)
 app.include_router(selection.router, dependencies=protected)
 app.include_router(modeling.router, dependencies=protected)
 app.include_router(ml_benchmark.router, dependencies=protected)
+app.include_router(final_model.router, dependencies=protected)
 app.include_router(scaling.router, dependencies=protected)
 app.include_router(validation.router, dependencies=protected)
 app.include_router(reason_codes.router, dependencies=protected)

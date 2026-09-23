@@ -1,3 +1,13 @@
-from .reasons import compute_reason_codes, compute_variable_contributions
+from .reasons import (
+    compute_reason_codes,
+    compute_shap_contributions,
+    compute_shap_reason_codes,
+    compute_variable_contributions,
+)
 
-__all__ = ["compute_variable_contributions", "compute_reason_codes"]
+__all__ = [
+    "compute_variable_contributions",
+    "compute_reason_codes",
+    "compute_shap_contributions",
+    "compute_shap_reason_codes",
+]

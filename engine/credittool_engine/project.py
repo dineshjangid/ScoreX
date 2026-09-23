@@ -30,6 +30,7 @@ class StepName(str, Enum):
     BINNING = "binning"
     VARIABLE_SELECTION = "variable_selection"
     MODELING = "modeling"
+    FINAL_MODEL_SELECTION = "final_model_selection"
     SCALING = "scaling"
     VALIDATION = "validation"
     REASON_CODES = "reason_codes"
@@ -53,6 +54,7 @@ SCORECARD_STEP_ORDER: list[StepName] = [
     StepName.BINNING,
     StepName.VARIABLE_SELECTION,
     StepName.MODELING,
+    StepName.FINAL_MODEL_SELECTION,
     StepName.SCALING,
     StepName.VALIDATION,
     StepName.REASON_CODES,

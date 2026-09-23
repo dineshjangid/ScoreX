@@ -2,13 +2,22 @@ from .logistic import CoefficientRow, LogisticModel, fit_logistic_regression, pr
 from .ml_benchmark import (
     ALL_ALGORITHMS,
     ALGORITHM_LABELS,
+    FEATURE_MODE,
+    Algorithm,
     FeatureImportance,
     MLBenchmarkResult,
+    apply_feature_encoding,
+    categorical_categories,
     fit_all_benchmarks,
     fit_ml_benchmark,
+    fit_model,
+    predict_bad_proba,
+    shap_matrix,
 )
+from .persistence import load_model, model_file_exists, save_model
 
 __all__ = [
+    "Algorithm",
     "CoefficientRow",
     "LogisticModel",
     "fit_logistic_regression",
@@ -17,6 +26,15 @@ __all__ = [
     "MLBenchmarkResult",
     "fit_ml_benchmark",
     "fit_all_benchmarks",
+    "fit_model",
+    "predict_bad_proba",
+    "shap_matrix",
+    "categorical_categories",
+    "apply_feature_encoding",
     "ALL_ALGORITHMS",
     "ALGORITHM_LABELS",
+    "FEATURE_MODE",
+    "save_model",
+    "load_model",
+    "model_file_exists",
 ]

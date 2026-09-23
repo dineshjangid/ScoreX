@@ -5,8 +5,9 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from credittool_engine.binning import assign_bin_labels
 from credittool_engine.data import load_dataframe
+from credittool_engine.modeling import load_model
 from credittool_engine.project import StepName, StepStatus
-from credittool_engine.scoring import compute_scores
+from credittool_engine.scoring import compute_ml_scores, compute_scores
 from credittool_engine.validation import (
     compute_auc_gini,
     compute_ks,
@@ -19,7 +20,7 @@ from credittool_engine.validation import (
 
 from ..auth import AuthUser, get_current_user
 from ..db import get_session
-from ..repo import get_record_or_404, invalidate_downstream, record_to_project, save_project
+from ..repo import effective_final_model_artifact, final_model_path, get_record_or_404, invalidate_downstream, record_to_project, save_project
 from ..schemas import SampleMetrics, StabilityResult, ValidationOut
 
 router = APIRouter(prefix="/api/projects/{project_id}/validation", tags=["validation"])
@@ -49,22 +50,39 @@ def run_validation(project_id: str, current_user: AuthUser = Depends(get_current
         project = record_to_project(record)
 
         binning_artifact = project.artifacts.get(StepName.BINNING.value)
-        model_artifact = project.artifacts.get(StepName.MODELING.value)
-        scaling_artifact = project.artifacts.get(StepName.SCALING.value)
-        if not binning_artifact or not model_artifact or not scaling_artifact:
-            raise HTTPException(status_code=400, detail="Build the scorecard (through scaling) before validating")
+        final_model_artifact = effective_final_model_artifact(project)
+        if not binning_artifact or not final_model_artifact:
+            raise HTTPException(status_code=400, detail="Select a final model before validating")
 
         df = load_dataframe(record.data_path)
         splits = pd.read_parquet(record.splits_path)
         binning_variables = binning_artifact["variables"]
-        fitted_params = model_artifact["fitted_params"]
-        factor, offset = scaling_artifact["factor"], scaling_artifact["offset"]
+
+        if final_model_artifact["source"] == "logistic":
+            model_artifact = project.artifacts.get(StepName.MODELING.value)
+            scaling_artifact = project.artifacts.get(StepName.SCALING.value)
+            if not model_artifact or not scaling_artifact:
+                raise HTTPException(status_code=400, detail="Build the scorecard (through scaling) before validating")
+            fitted_params = model_artifact["fitted_params"]
+            factor, offset = scaling_artifact["factor"], scaling_artifact["offset"]
+            model_vars = [v for v in fitted_params if v != "const"]
+
+            def score_of(sub_df: pd.DataFrame) -> pd.Series:
+                return compute_scores(sub_df, binning_variables, fitted_params, factor, offset)
+        else:
+            algorithm = final_model_artifact["algorithm"]
+            model_vars = final_model_artifact["variables"]
+            categories = final_model_artifact["feature_categories"]
+            model = load_model(final_model_path(project_id))
+
+            def score_of(sub_df: pd.DataFrame) -> pd.Series:
+                return compute_ml_scores(sub_df, model_vars, model, categories, algorithm)
 
         def sample_frame(label: str) -> tuple[pd.DataFrame, pd.Series, pd.Series]:
             idx = splits.index[splits["sample"] == label]
             sub_df = df.loc[idx]
             bad_flag = splits.loc[idx, "target"]
-            score = compute_scores(sub_df, binning_variables, fitted_params, factor, offset)
+            score = score_of(sub_df)
             return sub_df, bad_flag, score
 
         train_df, train_bad, train_score = sample_frame("train")
@@ -82,7 +100,6 @@ def run_validation(project_id: str, current_user: AuthUser = Depends(get_current
 
         csi_test: dict[str, StabilityResult] = {}
         csi_oot: dict[str, StabilityResult] | None = {} if len(oot_df) > 0 else None
-        model_vars = [v for v in fitted_params if v != "const"]
         for var in model_vars:
             binning = binning_variables[var]
             train_labels = assign_bin_labels(

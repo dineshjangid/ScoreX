@@ -154,6 +154,30 @@ class ModelOut(BaseModel):
     fitted_params: dict[str, float]
 
 
+class FinalModelSetIn(BaseModel):
+    algorithm: str  # "logistic" | "xgboost" | "random_forest" | "lightgbm" | "catboost"
+
+
+class FinalModelCandidateOut(BaseModel):
+    algorithm: str
+    train_auc: float
+    test_auc: float
+    train_gini: float
+    test_gini: float
+
+
+class FinalModelOut(BaseModel):
+    source: str  # "logistic" | "ml_benchmark"
+    algorithm: str
+    variables: list[str]
+    metrics: FinalModelCandidateOut | None = None
+
+
+class FinalModelStatusOut(BaseModel):
+    current: FinalModelOut | None
+    candidates: dict[str, FinalModelCandidateOut]
+
+
 class ScalingConfigIn(BaseModel):
     pdo: float = 20.0
     base_score: float = 600.0

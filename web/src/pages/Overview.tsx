@@ -9,16 +9,22 @@ export default function Overview() {
   const target = project.artifacts.target_definition?.summary;
   const validation = project.artifacts.validation?.train;
   const scaling = project.artifacts.scaling;
+  const finalModel = project.artifacts.final_model_selection;
   const tree = project.artifacts.decision_tree;
 
   const stats: { label: string; value: string }[] = [];
   if (target) stats.push({ label: "Bad rate", value: `${target.bad_rate_pct}%` });
+  if (finalModel) {
+    stats.push({ label: "Final model", value: finalModel.source === "logistic" ? "Logistic" : finalModel.algorithm });
+  }
   if (validation) {
     stats.push({ label: "Train KS", value: `${validation.ks}` });
     stats.push({ label: "Train AUC", value: `${validation.auc}` });
     stats.push({ label: "Train Gini", value: `${validation.gini}` });
   }
-  if (scaling) stats.push({ label: "Score range", value: `${scaling.min_score}–${scaling.max_score}` });
+  if (scaling && "min_score" in scaling) {
+    stats.push({ label: "Score range", value: `${scaling.min_score}–${scaling.max_score}` });
+  }
   if (tree) {
     const nodes = Object.values(tree.nodes);
     stats.push({ label: "Tree nodes", value: String(nodes.length) });

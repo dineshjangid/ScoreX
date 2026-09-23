@@ -13,6 +13,8 @@ export default function ReportingPanel({ project, onSaved }: Props) {
 
   const scalingReady = project.step_status["scaling"] === "complete";
   const base = `${API_BASE}/projects/${project.id}/reporting`;
+  const finalModel = project.artifacts.final_model_selection;
+  const isMlFinal = finalModel?.source === "ml_benchmark";
 
   async function handleComplete() {
     setBusy(true);
@@ -47,10 +49,23 @@ export default function ReportingPanel({ project, onSaved }: Props) {
         <a className="button-like" href={`${base}/scoring-code?lang=python`} target="_blank" rel="noreferrer">
           Python scoring code
         </a>
-        <a className="button-like" href={`${base}/scoring-code?lang=sql`} target="_blank" rel="noreferrer">
-          SQL scoring code
-        </a>
+        {isMlFinal ? (
+          <a className="button-like" href={`${base}/model-file`} target="_blank" rel="noreferrer">
+            Download model file
+          </a>
+        ) : (
+          <a className="button-like" href={`${base}/scoring-code?lang=sql`} target="_blank" rel="noreferrer">
+            SQL scoring code
+          </a>
+        )}
       </div>
+
+      {isMlFinal && (
+        <p className="muted">
+          Final model is {finalModel?.algorithm} — there's no SQL export for ML models (tree ensembles don't
+          translate to SQL). Use the Python scoring code together with the downloaded model file.
+        </p>
+      )}
 
       <div className="button-row">
         <button type="button" onClick={handleComplete} disabled={busy}>

@@ -24,8 +24,16 @@ def run_scaling(project_id: str, body: ScalingConfigIn, current_user: AuthUser =
 
         binning_artifact = project.artifacts.get(StepName.BINNING.value)
         model_artifact = project.artifacts.get(StepName.MODELING.value)
+        final_model_artifact = project.artifacts.get(StepName.FINAL_MODEL_SELECTION.value)
         if not binning_artifact or not model_artifact:
             raise HTTPException(status_code=400, detail="Fit a model before scaling")
+        if not final_model_artifact:
+            raise HTTPException(status_code=400, detail="Select a final model before scaling")
+        if final_model_artifact["source"] != "logistic":
+            raise HTTPException(
+                status_code=400,
+                detail=f"Scaling to points isn't applicable — the final model is {final_model_artifact['algorithm']}",
+            )
 
         config = ScalingConfig(pdo=body.pdo, base_score=body.base_score, base_odds=body.base_odds)
         scorecard = build_scorecard(model_artifact["fitted_params"], binning_artifact["variables"], config)

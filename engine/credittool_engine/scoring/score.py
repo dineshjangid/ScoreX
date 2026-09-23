@@ -5,9 +5,11 @@ scorecard export.
 """
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
 
 from ..binning import apply_binning
+from ..modeling import Algorithm, predict_bad_proba
 
 
 def compute_scores(
@@ -40,3 +42,19 @@ def compute_scores(
         total = total + (-factor * coef * woe).round()
 
     return total.astype(int)
+
+
+def compute_ml_scores(
+    df: pd.DataFrame,
+    variables: list[str],
+    model,
+    categories: dict[str, list[str]],
+    algorithm: Algorithm,
+) -> pd.Series:
+    """"Safety score" (0-1000, higher = safer) for an ML final model, on the
+    same "higher = safer" convention as compute_scores' points — so
+    validation/decile/PSI/CSI (all of which just consume a `score` series)
+    work unchanged regardless of which final model produced it.
+    """
+    p_bad = predict_bad_proba(model, df, variables, categories, algorithm)
+    return np.round((1 - p_bad) * 1000).astype(int)

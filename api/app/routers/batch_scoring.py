@@ -9,29 +9,63 @@ import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException, Response, UploadFile
 
 from credittool_engine.data import SUPPORTED_EXTENSIONS, load_dataframe
+from credittool_engine.modeling import load_model
 from credittool_engine.project import StepName
-from credittool_engine.reason_codes import compute_reason_codes, compute_variable_contributions
-from credittool_engine.scoring import compute_scores
+from credittool_engine.reason_codes import (
+    compute_reason_codes,
+    compute_shap_contributions,
+    compute_shap_reason_codes,
+    compute_variable_contributions,
+)
+from credittool_engine.scoring import compute_ml_scores, compute_scores
 
 from ..auth import AuthUser, get_current_user
 from ..db import UPLOADS_DIR, get_session
-from ..repo import get_record_or_404, log_audit, record_to_project, save_project
+from ..repo import effective_final_model_artifact, final_model_path, get_record_or_404, log_audit, record_to_project, save_project
 from ..schemas import BatchScoringOut, ScoreDistribution
 
 router = APIRouter(prefix="/api/projects/{project_id}/batch_scoring", tags=["batch_scoring"])
 
 
-def _load_scorecard_pieces(project):
+def _load_scoring_context(project, record):
     binning_artifact = project.artifacts.get(StepName.BINNING.value)
-    model_artifact = project.artifacts.get(StepName.MODELING.value)
-    scaling_artifact = project.artifacts.get(StepName.SCALING.value)
-    if not binning_artifact or not model_artifact or not scaling_artifact:
-        raise HTTPException(status_code=400, detail="Build the scorecard (through scaling) before batch scoring")
-    return binning_artifact["variables"], model_artifact["fitted_params"], scaling_artifact["factor"], scaling_artifact["offset"]
+    final_model_artifact = effective_final_model_artifact(project)
+    if not binning_artifact or not final_model_artifact:
+        raise HTTPException(status_code=400, detail="Select a final model before batch scoring")
+
+    if final_model_artifact["source"] == "logistic":
+        model_artifact = project.artifacts.get(StepName.MODELING.value)
+        scaling_artifact = project.artifacts.get(StepName.SCALING.value)
+        if not model_artifact or not scaling_artifact:
+            raise HTTPException(status_code=400, detail="Build the scorecard (through scaling) before batch scoring")
+        fitted_params = model_artifact["fitted_params"]
+        required_columns = [v for v in fitted_params if v != "const"]
+
+        def score_and_reasons(df: pd.DataFrame, top_n: int) -> tuple[pd.Series, pd.DataFrame]:
+            binning_variables = binning_artifact["variables"]
+            factor, offset = scaling_artifact["factor"], scaling_artifact["offset"]
+            scores = compute_scores(df, binning_variables, fitted_params, factor, offset)
+            contributions = compute_variable_contributions(df, binning_variables, fitted_params, factor)
+            reasons = compute_reason_codes(contributions, top_n=top_n)
+            return scores, reasons
+
+    else:
+        algorithm = final_model_artifact["algorithm"]
+        variables = final_model_artifact["variables"]
+        categories = final_model_artifact["feature_categories"]
+        model = load_model(final_model_path(record.id))
+        required_columns = variables
+
+        def score_and_reasons(df: pd.DataFrame, top_n: int) -> tuple[pd.Series, pd.DataFrame]:
+            scores = compute_ml_scores(df, variables, model, categories, algorithm)
+            contributions = compute_shap_contributions(df, variables, model, categories, algorithm)
+            reasons = compute_shap_reason_codes(contributions, top_n=top_n)
+            return scores, reasons
+
+    return required_columns, score_and_reasons
 
 
-def _check_required_columns(df: pd.DataFrame, fitted_params: dict) -> None:
-    required = [v for v in fitted_params if v != "const"]
+def _check_required_columns(df: pd.DataFrame, required: list[str]) -> None:
     missing = [v for v in required if v not in df.columns]
     if missing:
         raise HTTPException(status_code=400, detail=f"Uploaded file is missing required column(s): {missing}")
@@ -51,7 +85,7 @@ async def upload_batch(
     with get_session() as session:
         record = get_record_or_404(session, project_id)
         project = record_to_project(record)
-        binning_variables, fitted_params, factor, offset = _load_scorecard_pieces(project)
+        required_columns, score_and_reasons = _load_scoring_context(project, record)
 
         dest_dir = Path(UPLOADS_DIR) / project_id / "batch"
         dest_dir.mkdir(parents=True, exist_ok=True)
@@ -65,11 +99,8 @@ async def upload_batch(
             raise HTTPException(status_code=400, detail=f"Could not read file: {exc}") from exc
 
         try:
-            _check_required_columns(df, fitted_params)
-
-            scores = compute_scores(df, binning_variables, fitted_params, factor, offset)
-            contributions = compute_variable_contributions(df, binning_variables, fitted_params, factor)
-            reasons = compute_reason_codes(contributions, top_n=top_n)
+            _check_required_columns(df, required_columns)
+            scores, reasons = score_and_reasons(df, top_n)
         except HTTPException:
             os.remove(dest_path)
             raise
@@ -120,17 +151,14 @@ def export_batch(project_id: str, top_n: int = 3, current_user: AuthUser = Depen
     with get_session() as session:
         record = get_record_or_404(session, project_id)
         project = record_to_project(record)
-        binning_variables, fitted_params, factor, offset = _load_scorecard_pieces(project)
+        required_columns, score_and_reasons = _load_scoring_context(project, record)
 
         if not record.batch_path or not os.path.exists(record.batch_path):
             raise HTTPException(status_code=404, detail="No batch file uploaded for this project yet")
 
         df = load_dataframe(record.batch_path)
-        _check_required_columns(df, fitted_params)
-
-        scores = compute_scores(df, binning_variables, fitted_params, factor, offset)
-        contributions = compute_variable_contributions(df, binning_variables, fitted_params, factor)
-        reasons = compute_reason_codes(contributions, top_n=top_n)
+        _check_required_columns(df, required_columns)
+        scores, reasons = score_and_reasons(df, top_n)
 
         out = df.copy()
         out["score"] = scores

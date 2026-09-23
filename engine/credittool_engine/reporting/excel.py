@@ -56,25 +56,46 @@ def build_excel_report(data: dict) -> bytes:
     rows.sort(key=lambda r: r[2], reverse=True)
     _write_table(binning_ws, ["Variable", "Kind", "IV", "N bins"], rows)
 
+    final_model = data.get("final_model") or {}
+    is_ml_final = final_model.get("source") == "ml_benchmark"
+
     model_ws = wb.create_sheet("Model")
-    model = data.get("modeling", {})
-    model_rows = [["(intercept)", model.get("intercept"), "", "", ""]]
-    model_rows += [
-        [c["variable"], c["coefficient"], c["std_error"], c["z_value"], c["p_value"]]
-        for c in model.get("coefficients", [])
-    ]
-    _write_table(model_ws, ["Variable", "Coefficient", "Std error", "z", "p-value"], model_rows)
+    if is_ml_final:
+        ml_result = data.get("ml_benchmark_result") or {}
+        model_ws.append(["Final model", final_model.get("algorithm")])
+        model_ws.append(["Train AUC / Gini", ml_result.get("train_auc"), ml_result.get("train_gini")])
+        model_ws.append(["Test AUC / Gini", ml_result.get("test_auc"), ml_result.get("test_gini")])
+        model_ws.append([])
+        importance_rows = [[f["variable"], f["mean_abs_shap"]] for f in ml_result.get("feature_importance", [])]
+        _write_table(model_ws, ["Variable", "Mean |SHAP|"], importance_rows, start_row=5)
+    else:
+        model = data.get("modeling", {})
+        model_rows = [["(intercept)", model.get("intercept"), "", "", ""]]
+        model_rows += [
+            [c["variable"], c["coefficient"], c["std_error"], c["z_value"], c["p_value"]]
+            for c in model.get("coefficients", [])
+        ]
+        _write_table(model_ws, ["Variable", "Coefficient", "Std error", "z", "p-value"], model_rows)
 
     scorecard_ws = wb.create_sheet("Scorecard")
-    scaling = data.get("scaling", {})
-    scorecard_ws.append(["Base points", scaling.get("base_points")])
-    scorecard_ws.append(["Score range", scaling.get("min_score"), scaling.get("max_score")])
-    scorecard_ws.append([])
-    points_rows = []
-    for v in scaling.get("variables", []):
-        for b in v["bins"]:
-            points_rows.append([v["variable"], b["label"], b["woe"], b["points"]])
-    _write_table(scorecard_ws, ["Variable", "Bin", "WOE", "Points"], points_rows, start_row=4)
+    if is_ml_final:
+        scorecard_ws.append(
+            [
+                "No points scorecard — final model is a fitted "
+                f"{final_model.get('algorithm')} model, deployed via its predicted probability, "
+                "not a points table."
+            ]
+        )
+    else:
+        scaling = data.get("scaling", {})
+        scorecard_ws.append(["Base points", scaling.get("base_points")])
+        scorecard_ws.append(["Score range", scaling.get("min_score"), scaling.get("max_score")])
+        scorecard_ws.append([])
+        points_rows = []
+        for v in scaling.get("variables", []):
+            for b in v["bins"]:
+                points_rows.append([v["variable"], b["label"], b["woe"], b["points"]])
+        _write_table(scorecard_ws, ["Variable", "Bin", "WOE", "Points"], points_rows, start_row=4)
 
     buffer = io.BytesIO()
     wb.save(buffer)

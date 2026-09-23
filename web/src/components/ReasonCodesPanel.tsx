@@ -15,6 +15,7 @@ export default function ReasonCodesPanel({ project, onSaved }: Props) {
   const [busy, setBusy] = useState(false);
 
   const scalingReady = project.step_status["scaling"] === "complete";
+  const isMlFinal = project.artifacts.final_model_selection?.source === "ml_benchmark";
 
   async function handleRun() {
     setBusy(true);
@@ -38,6 +39,12 @@ export default function ReasonCodesPanel({ project, onSaved }: Props) {
 
   return (
     <div className="ingestion-panel">
+      {isMlFinal && (
+        <p className="muted">
+          Final model is an ML model — reason values are SHAP contributions to the predicted risk (higher = pushes
+          the score down more), not points.
+        </p>
+      )}
       <label>
         Number of reasons per record
         <input type="number" min="1" max="10" value={topN} onChange={(e) => setTopN(parseInt(e.target.value, 10))} />
