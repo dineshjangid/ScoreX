@@ -582,6 +582,19 @@ export interface DownstreamSettings {
   scaling: ScalingConfigInput | null;
 }
 
+export interface NarrativeField {
+  key: string;
+  title: string;
+  guidance: string;
+  draft: string;
+  // null until the analyst saves their own text for this field.
+  saved: string | null;
+}
+
+export interface Narrative {
+  fields: NarrativeField[];
+}
+
 export interface ModelCandidates {
   candidates: ModelCandidate[];
   downstream_settings: DownstreamSettings;
@@ -722,6 +735,10 @@ export const api = {
     }),
   completeReporting: (projectId: string) =>
     request<ReportingStatus>(`/projects/${projectId}/reporting`, { method: "POST" }),
+  getNarrative: (projectId: string) => request<Narrative>(`/projects/${projectId}/reporting/narrative`),
+  // Blank text reverts a field to its draft.
+  saveNarrative: (projectId: string, values: Record<string, string>) =>
+    request<Narrative>(`/projects/${projectId}/reporting/narrative`, { method: "PUT", body: JSON.stringify({ values }) }),
   getModelCandidates: (projectId: string) => request<ModelCandidates>(`/projects/${projectId}/model_candidates`),
   activateCandidate: (projectId: string, candidateId: string) =>
     request<ModelCandidates>(`/projects/${projectId}/model_candidates/${candidateId}/activate`, { method: "POST" }),

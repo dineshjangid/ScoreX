@@ -99,7 +99,8 @@ def run_ml_benchmark(
             project,
             current_user,
             "ml_benchmark.run",
-            f"{'; '.join(run_labels)} on {variables} ({hyperparams.to_dict()})",
+            f"{'; '.join(run_labels)} on {', '.join(variables)} "
+            f"({', '.join(f'{k}={v}' for k, v in hyperparams.to_dict().items() if v is not None)})",
         )
         results = (project.artifacts.get("ml_benchmark") or {}).get("results") or {}
 

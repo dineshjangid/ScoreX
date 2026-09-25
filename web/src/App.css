@@ -1759,3 +1759,104 @@ button.danger-solid:hover:not(:disabled) {
   padding: 16px 0 0;
   border-top: 1px solid var(--border);
 }
+
+/* ---------- Documentation step ---------- */
+
+.doc-intro {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.doc-intro > div:first-child {
+  flex: 1 1 320px;
+}
+
+.doc-intro h2 {
+  margin: 0 0 6px;
+}
+
+.doc-downloads {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.button-like.primary-link {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+  font-weight: 500;
+}
+
+.button-like.disabled-link {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.narrative-list {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.narrative-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.narrative-field-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.narrative-field-header .field-label {
+  font-size: 13.5px;
+}
+
+.draft-badge {
+  background: var(--gray-bg);
+  color: var(--text);
+  border-color: var(--border);
+  font-size: 11px;
+  padding: 1px 7px;
+}
+
+.narrative-field textarea {
+  font: inherit;
+  font-size: 13.5px;
+  line-height: 1.5;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text-h);
+  resize: vertical;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.narrative-field textarea:focus {
+  outline: 2px solid var(--accent-border);
+  border-color: var(--accent);
+}
+
+.link-button {
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--accent);
+  font-size: 12.5px;
+  margin-left: auto;
+}
+
+.link-button:hover:not(:disabled) {
+  background: transparent;
+  color: var(--accent);
+  border: none;
+  text-decoration: underline;
+}

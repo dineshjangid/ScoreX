@@ -36,6 +36,11 @@ labels + audit trail, and champion/challenger versioning.
   activate themselves once one is active. `POST /rebuild` re-runs Final
   Model Selection → Scaling → Validation with the remembered
   `downstream_settings`.
+- The model development document is built once as a renderer-neutral
+  structure (`engine/.../reporting/document.py`) and rendered to Word
+  (`word.py`) and PDF (`pdf.py`); add sections there, not in a renderer.
+  Analyst commentary lives in the `documentation_narrative` artifact;
+  unsaved fields fall back to drafts from `narrative.py`.
 - Auth: local accounts plus Azure AD SAML (`api/app/saml_config.py`,
   `routers/saml_auth.py`). SAML role comes from Azure AD group claims on
   each login; `UserRecord.auth_source` is "local" or "saml".

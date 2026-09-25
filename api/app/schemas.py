@@ -384,6 +384,9 @@ class ReasonCodesOut(BaseModel):
     top_n: int
     n_scored: int
     preview: list[dict]
+    # How often each characteristic is the primary reason across all scored
+    # rows, most frequent first (for the model documentation).
+    reason_1_frequency: list[dict] = []
 
 
 class BatchScoringOut(BaseModel):
@@ -499,3 +502,21 @@ class AuditLogOut(BaseModel):
     action: str
     detail: str | None
     created_at: str
+
+
+class NarrativeFieldOut(BaseModel):
+    key: str
+    title: str
+    guidance: str
+    draft: str
+    # None until the analyst saves their own text for this field.
+    saved: str | None
+
+
+class NarrativeOut(BaseModel):
+    fields: list[NarrativeFieldOut]
+
+
+class NarrativeIn(BaseModel):
+    # key -> text; blank text reverts that field to its draft.
+    values: dict[str, str]
