@@ -23,6 +23,8 @@ import shap
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import roc_auc_score
 
+from ..validation.metrics import discrimination_metrics
+
 Algorithm = Literal["xgboost", "random_forest", "lightgbm", "catboost"]
 FeatureMode = Literal["category", "raw_str", "ordinal"]
 
@@ -46,6 +48,45 @@ FEATURE_MODE: dict[Algorithm, FeatureMode] = {
 
 
 @dataclass
+class Hyperparams:
+    """Tuning knobs shared across the tree ensembles. None means "library
+    default". Not every algorithm has every knob — see HYPERPARAM_SUPPORT;
+    unsupported ones are ignored."""
+
+    n_estimators: int = 100
+    max_depth: int = 3
+    learning_rate: float | None = None
+    subsample: float | None = None
+    min_samples_leaf: int | None = None
+    l2_reg: float | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "n_estimators": self.n_estimators,
+            "max_depth": self.max_depth,
+            "learning_rate": self.learning_rate,
+            "subsample": self.subsample,
+            "min_samples_leaf": self.min_samples_leaf,
+            "l2_reg": self.l2_reg,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any] | None) -> "Hyperparams":
+        data = data or {}
+        return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__ and v is not None})
+
+
+# Which optional Hyperparams each algorithm honours (n_estimators and
+# max_depth apply to all four).
+HYPERPARAM_SUPPORT: dict[Algorithm, set[str]] = {
+    "random_forest": {"subsample", "min_samples_leaf"},
+    "xgboost": {"learning_rate", "subsample", "l2_reg"},
+    "lightgbm": {"learning_rate", "subsample", "min_samples_leaf", "l2_reg"},
+    "catboost": {"learning_rate", "subsample", "l2_reg"},
+}
+
+
+@dataclass
 class FeatureImportance:
     variable: str
     mean_abs_shap: float
@@ -63,9 +104,14 @@ class MLBenchmarkResult:
     train_gini: float
     test_gini: float
     feature_importance: list[FeatureImportance] = field(default_factory=list)
+    hyperparams: Hyperparams = field(default_factory=Hyperparams)
+    # KS/AUC/Gini per sample ("train", "test", and "oot" when provided).
+    sample_metrics: dict[str, dict[str, Any] | None] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
+            "hyperparams": self.hyperparams.to_dict(),
+            "sample_metrics": self.sample_metrics,
             "algorithm": self.algorithm,
             "variables": self.variables,
             "train_auc": self.train_auc,
@@ -126,48 +172,60 @@ def apply_feature_encoding(
     return X
 
 
-def _build_model(
-    algorithm: Algorithm,
-    cat_feature_idx: list[int],
-    n_estimators: int,
-    max_depth: int,
-    random_state: int,
-):
+def _build_model(algorithm: Algorithm, cat_feature_idx: list[int], params: Hyperparams, random_state: int):
+    supported = HYPERPARAM_SUPPORT[algorithm]
+    # Only pass knobs that were set and that this algorithm understands,
+    # so everything else stays at the library's own default.
+    opt = {k: v for k, v in params.to_dict().items() if k in supported and v is not None}
+
     if algorithm == "random_forest":
         return RandomForestClassifier(
-            n_estimators=n_estimators,
-            max_depth=max_depth or None,
+            n_estimators=params.n_estimators,
+            max_depth=params.max_depth or None,
             random_state=random_state,
+            **({"max_samples": opt["subsample"]} if "subsample" in opt else {}),
+            **({"min_samples_leaf": opt["min_samples_leaf"]} if "min_samples_leaf" in opt else {}),
         )
     if algorithm == "lightgbm":
         import lightgbm as lgb
 
         return lgb.LGBMClassifier(
-            n_estimators=n_estimators,
-            max_depth=max_depth,
+            n_estimators=params.n_estimators,
+            max_depth=params.max_depth,
             random_state=random_state,
             verbosity=-1,
+            **({"learning_rate": opt["learning_rate"]} if "learning_rate" in opt else {}),
+            # LightGBM only row-samples when subsample_freq > 0.
+            **({"subsample": opt["subsample"], "subsample_freq": 1} if "subsample" in opt else {}),
+            **({"min_child_samples": opt["min_samples_leaf"]} if "min_samples_leaf" in opt else {}),
+            **({"reg_lambda": opt["l2_reg"]} if "l2_reg" in opt else {}),
         )
     if algorithm == "catboost":
         import catboost as cb
 
         return cb.CatBoostClassifier(
-            iterations=n_estimators,
-            depth=max_depth,
+            iterations=params.n_estimators,
+            depth=params.max_depth,
             random_state=random_state,
             cat_features=cat_feature_idx or None,
             verbose=False,
             allow_writing_files=False,
+            **({"learning_rate": opt["learning_rate"]} if "learning_rate" in opt else {}),
+            **({"subsample": opt["subsample"], "bootstrap_type": "Bernoulli"} if "subsample" in opt else {}),
+            **({"l2_leaf_reg": opt["l2_reg"]} if "l2_reg" in opt else {}),
         )
     if algorithm == "xgboost":
         import xgboost as xgb
 
         return xgb.XGBClassifier(
-            n_estimators=n_estimators,
-            max_depth=max_depth,
+            n_estimators=params.n_estimators,
+            max_depth=params.max_depth,
             random_state=random_state,
             enable_categorical=True,
             eval_metric="logloss",
+            **({"learning_rate": opt["learning_rate"]} if "learning_rate" in opt else {}),
+            **({"subsample": opt["subsample"]} if "subsample" in opt else {}),
+            **({"reg_lambda": opt["l2_reg"]} if "l2_reg" in opt else {}),
         )
     raise ValueError(f"Unknown algorithm: {algorithm}")
 
@@ -177,19 +235,20 @@ def fit_model(
     train_bad: pd.Series,
     variables: list[str],
     algorithm: Algorithm,
-    n_estimators: int = 100,
-    max_depth: int = 3,
+    hyperparams: Hyperparams | None = None,
     random_state: int = 42,
 ):
     """Fits and returns just the raw model object (plus the categorical
     encoding it needs), for callers that want to keep/persist the fitted
     model itself rather than only its benchmark metrics — e.g. picking one
-    of these algorithms as the project's final model."""
+    of these algorithms as the project's final model. Given the same
+    hyperparams and random_state, it reproduces fit_ml_benchmark's model."""
+    params = hyperparams or Hyperparams()
     categories = categorical_categories(train_df, variables)
     mode = FEATURE_MODE[algorithm]
     X_train = apply_feature_encoding(train_df, variables, categories, mode)
     cat_feature_idx = [i for i, col in enumerate(variables) if col in categories]
-    model = _build_model(algorithm, cat_feature_idx, n_estimators, max_depth, random_state)
+    model = _build_model(algorithm, cat_feature_idx, params, random_state)
     model.fit(X_train, train_bad)
     return model, categories
 
@@ -243,15 +302,17 @@ def fit_ml_benchmark(
     test_bad: pd.Series,
     variables: list[str],
     algorithm: Algorithm = "xgboost",
-    n_estimators: int = 100,
-    max_depth: int = 3,
+    hyperparams: Hyperparams | None = None,
     random_state: int = 42,
+    oot_df: pd.DataFrame | None = None,
+    oot_bad: pd.Series | None = None,
 ) -> MLBenchmarkResult:
-    model, categories = fit_model(train_df, train_bad, variables, algorithm, n_estimators, max_depth, random_state)
+    params = hyperparams or Hyperparams()
+    model, categories = fit_model(train_df, train_bad, variables, algorithm, params, random_state)
     mode = FEATURE_MODE[algorithm]
     X_train = apply_feature_encoding(train_df, variables, categories, mode)
 
-    train_pred = model.predict_proba(X_train)[:, 1]
+    train_pred = pd.Series(model.predict_proba(X_train)[:, 1], index=train_df.index)
     test_pred = predict_bad_proba(model, test_df, variables, categories, algorithm)
 
     train_auc = roc_auc_score(train_bad, train_pred)
@@ -266,6 +327,16 @@ def fit_ml_benchmark(
         test_auc = roc_auc_score(test_bad, test_pred)
         test_gini = 2 * test_auc - 1
 
+    sample_metrics = {
+        "train": discrimination_metrics(train_bad, train_pred),
+        "test": discrimination_metrics(test_bad, test_pred),
+        "oot": None,
+    }
+    if oot_df is not None and oot_bad is not None and len(oot_df) > 0:
+        sample_metrics["oot"] = discrimination_metrics(
+            oot_bad, predict_bad_proba(model, oot_df, variables, categories, algorithm)
+        )
+
     feature_importance = _shap_feature_importance(model, X_train, variables)
 
     return MLBenchmarkResult(
@@ -276,6 +347,8 @@ def fit_ml_benchmark(
         train_gini=round(float(train_gini), 4),
         test_gini=round(float(test_gini), 4),
         feature_importance=feature_importance,
+        hyperparams=params,
+        sample_metrics=sample_metrics,
     )
 
 
@@ -285,8 +358,7 @@ def fit_all_benchmarks(
     test_df: pd.DataFrame,
     test_bad: pd.Series,
     variables: list[str],
-    n_estimators: int = 100,
-    max_depth: int = 3,
+    hyperparams: Hyperparams | None = None,
     random_state: int = 42,
 ) -> list[MLBenchmarkResult]:
     return [
@@ -297,8 +369,7 @@ def fit_all_benchmarks(
             test_bad,
             variables,
             algorithm=algo,
-            n_estimators=n_estimators,
-            max_depth=max_depth,
+            hyperparams=hyperparams,
             random_state=random_state,
         )
         for algo in ALL_ALGORITHMS

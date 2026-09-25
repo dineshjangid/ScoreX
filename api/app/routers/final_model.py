@@ -8,6 +8,7 @@ from credittool_engine.data import load_dataframe
 from credittool_engine.modeling import (
     ALGORITHM_LABELS,
     ALL_ALGORITHMS,
+    Hyperparams,
     fit_model,
     predict_probability,
     save_model,
@@ -107,8 +108,16 @@ def set_final_model(project_id: str, body: FinalModelSetIn, current_user: AuthUs
                 status_code=400, detail=f"Run the ML benchmark for {ALGORITHM_LABELS[body.algorithm]} first"
             )
 
-        config = ml_benchmark_artifact["config"]
-        variables = config.get("variables") or results[body.algorithm]["variables"]
+        result = results[body.algorithm]
+        variables = result["variables"]
+        # Refit from this result's own hyperparams so the final model is the
+        # model that was benchmarked. Results saved before per-result
+        # hyperparams existed fall back to the run-wide config they used.
+        legacy_config = ml_benchmark_artifact.get("config") or {}
+        hyperparams = Hyperparams.from_dict(
+            result.get("hyperparams")
+            or {k: legacy_config[k] for k in ("n_estimators", "max_depth") if k in legacy_config}
+        )
 
         df = load_dataframe(record.data_path)
         splits = pd.read_parquet(record.splits_path)
@@ -116,9 +125,7 @@ def set_final_model(project_id: str, body: FinalModelSetIn, current_user: AuthUs
         train_df = df.loc[train_idx]
         train_bad = splits.loc[train_idx, "target"]
 
-        model, categories = fit_model(
-            train_df, train_bad, variables, body.algorithm, config["n_estimators"], config["max_depth"]
-        )
+        model, categories = fit_model(train_df, train_bad, variables, body.algorithm, hyperparams)
         save_model(model, final_model_path(project_id))
 
         metrics = results[body.algorithm]

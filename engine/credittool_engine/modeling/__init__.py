@@ -1,10 +1,12 @@
-from .logistic import CoefficientRow, LogisticModel, fit_logistic_regression, predict_probability
+from .logistic import CoefficientRow, LogisticModel, Penalty, fit_logistic_regression, predict_probability
 from .ml_benchmark import (
     ALL_ALGORITHMS,
     ALGORITHM_LABELS,
     FEATURE_MODE,
+    HYPERPARAM_SUPPORT,
     Algorithm,
     FeatureImportance,
+    Hyperparams,
     MLBenchmarkResult,
     apply_feature_encoding,
     categorical_categories,
@@ -34,6 +36,9 @@ __all__ = [
     "ALL_ALGORITHMS",
     "ALGORITHM_LABELS",
     "FEATURE_MODE",
+    "HYPERPARAM_SUPPORT",
+    "Hyperparams",
+    "Penalty",
     "save_model",
     "load_model",
     "model_file_exists",

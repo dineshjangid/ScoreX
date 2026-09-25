@@ -78,7 +78,13 @@ def run_reason_codes(
                 row[f"reason_{i + 1}_points"] = reasons.loc[idx, f"reason_{i + 1}_points"]
             preview_rows.append(row)
 
-        result = ReasonCodesOut(top_n=body.top_n, n_scored=len(df), preview=preview_rows)
+        primary = reasons["reason_1"].dropna()
+        frequency = [
+            {"variable": str(var), "count": int(count), "pct": round(count / len(primary) * 100, 2)}
+            for var, count in primary.value_counts().items()
+        ] if len(primary) else []
+
+        result = ReasonCodesOut(top_n=body.top_n, n_scored=len(df), preview=preview_rows, reason_1_frequency=frequency)
 
         project.set_artifact(StepName.REASON_CODES, {"config": body.model_dump(), **result.model_dump()})
         project.mark_step(StepName.REASON_CODES, StepStatus.COMPLETE)

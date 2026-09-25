@@ -13,6 +13,11 @@ from openpyxl.worksheet.worksheet import Worksheet
 _HEADER_FONT = Font(bold=True)
 
 
+def _or_na(value):
+    """Penalised fits have no std error / z / p-value."""
+    return "n/a" if value is None else value
+
+
 def _write_table(ws: Worksheet, headers: list[str], rows: list[list], start_row: int = 1) -> int:
     for col, header in enumerate(headers, start=1):
         cell = ws.cell(row=start_row, column=col, value=header)
@@ -72,10 +77,15 @@ def build_excel_report(data: dict) -> bytes:
         model = data.get("modeling", {})
         model_rows = [["(intercept)", model.get("intercept"), "", "", ""]]
         model_rows += [
-            [c["variable"], c["coefficient"], c["std_error"], c["z_value"], c["p_value"]]
+            [c["variable"], c["coefficient"], *(_or_na(c.get(k)) for k in ("std_error", "z_value", "p_value"))]
             for c in model.get("coefficients", [])
         ]
         _write_table(model_ws, ["Variable", "Coefficient", "Std error", "z", "p-value"], model_rows)
+        if model.get("penalty", "none") != "none":
+            model_ws.append([])
+            model_ws.append(["Penalty", model["penalty"].upper(), "alpha", model.get("alpha")])
+            if model.get("dropped_variables"):
+                model_ws.append(["Dropped by penalty", ", ".join(model["dropped_variables"])])
 
     scorecard_ws = wb.create_sheet("Scorecard")
     if is_ml_final:
