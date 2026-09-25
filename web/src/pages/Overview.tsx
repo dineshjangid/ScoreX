@@ -1,5 +1,6 @@
 import { Link, useOutletContext } from "react-router-dom";
 import { STEP_LABELS, stepOrderFor } from "../api";
+import TypeBadge from "../components/TypeBadge";
 import type { ProjectOutletContext } from "./ProjectLayout";
 
 export default function Overview() {
@@ -43,7 +44,9 @@ export default function Overview() {
       <div className="card">
         <dl className="meta-grid">
           <dt>Scorecard type</dt>
-          <dd className="badge">{project.scorecard_type}</dd>
+          <dd>
+            <TypeBadge type={project.scorecard_type} />
+          </dd>
           <dt>Created</dt>
           <dd>{new Date(project.created_at).toLocaleString()}</dd>
           <dt>Last updated</dt>

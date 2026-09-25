@@ -35,6 +35,22 @@ export interface ProjectSummary {
   updated_at: string;
 }
 
+export interface ChampionSummary {
+  version_number: number;
+  label: string | null;
+  train_ks: number | null;
+  train_gini: number | null;
+}
+
+export interface ProjectListItem extends ProjectSummary {
+  steps_completed: number;
+  steps_total: number;
+  // First not-yet-complete step, or null once every step is complete.
+  current_step: string | null;
+  last_edited_by: string | null;
+  champion: ChampionSummary | null;
+}
+
 export interface ColumnProfile {
   name: string;
   kind: "numeric" | "categorical" | "boolean" | "datetime";
@@ -541,7 +557,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  listProjects: () => request<ProjectSummary[]>("/projects"),
+  listProjects: () => request<ProjectListItem[]>("/projects"),
   createProject: (name: string, scorecard_type: ScorecardType) =>
     request<ProjectDetail>("/projects", {
       method: "POST",

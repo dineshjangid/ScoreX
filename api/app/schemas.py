@@ -19,6 +19,25 @@ class ProjectSummary(BaseModel):
     updated_at: str
 
 
+class ChampionSummary(BaseModel):
+    version_number: int
+    label: str | None
+    train_ks: float | None
+    train_gini: float | None
+
+
+class ProjectListItem(ProjectSummary):
+    """A project as shown on the home page list: summary plus lifecycle
+    progress, who last touched it, and its champion model (if any)."""
+
+    steps_completed: int
+    steps_total: int
+    # First not-yet-complete step, or None once every step is complete.
+    current_step: str | None
+    last_edited_by: str | None
+    champion: ChampionSummary | None
+
+
 class ProjectDetail(ProjectSummary):
     step_status: dict[str, StepStatus]
     artifacts: dict

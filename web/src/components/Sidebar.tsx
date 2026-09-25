@@ -1,6 +1,7 @@
 import { NavLink } from "react-router-dom";
 import { STEP_LABELS, stepOrderFor } from "../api";
 import type { ProjectDetail, StepStatus } from "../api";
+import TypeBadge from "./TypeBadge";
 import UserMenu from "./UserMenu";
 
 const STATUS_ICON: Record<StepStatus, string> = {
@@ -23,7 +24,7 @@ export default function Sidebar({ project }: { project: ProjectDetail }) {
           &larr; All projects
         </NavLink>
         <h2 className="sidebar-title">{project.name}</h2>
-        <span className="badge">{project.scorecard_type}</span>
+        <TypeBadge type={project.scorecard_type} />
       </div>
 
       <NavLink
@@ -85,7 +86,7 @@ export default function Sidebar({ project }: { project: ProjectDetail }) {
 
       <div className="sidebar-spacer" />
       <div className="sidebar-footer">
-        <UserMenu />
+        <UserMenu placement="up" />
       </div>
     </nav>
   );

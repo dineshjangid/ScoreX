@@ -83,6 +83,17 @@ def steps_for(scorecard_type: ScorecardType) -> list[StepName]:
     return SCORECARD_STEP_ORDER
 
 
+def lifecycle_progress(project: "Project") -> tuple[int, int, StepName | None]:
+    """(completed steps, total steps, current step) for a project's
+    lifecycle. The current step is the first one not yet complete, or None
+    once every step is complete.
+    """
+    order = steps_for(project.scorecard_type)
+    completed = sum(1 for step in order if project.step_status.get(step) == StepStatus.COMPLETE)
+    current = next((step for step in order if project.step_status.get(step) != StepStatus.COMPLETE), None)
+    return completed, len(order), current
+
+
 @dataclass
 class Project:
     name: str
