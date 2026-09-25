@@ -21,6 +21,18 @@ _TABLE_STYLE = TableStyle(
 )
 
 
+def _penalty_note(model: dict) -> str:
+    note = f"Fitted with an {model['penalty'].upper()} penalty (alpha={model.get('alpha')}); std error, z and p-value are not available for penalised fits."
+    if model.get("dropped_variables"):
+        note += f" Dropped by the penalty: {', '.join(model['dropped_variables'])}."
+    return note
+
+
+def _or_na(value):
+    """Penalised fits have no std error / z / p-value."""
+    return "n/a" if value is None else value
+
+
 def _table(headers: list[str], rows: list[list]) -> Table:
     table = Table([headers] + rows, repeatRows=1)
     table.setStyle(_TABLE_STYLE)
@@ -74,11 +86,13 @@ def build_pdf_report(data: dict) -> bytes:
         story.append(Paragraph("Logistic Regression Model", styles["Heading2"]))
         rows = [["(intercept)", model.get("intercept"), "", "", ""]]
         rows += [
-            [c["variable"], c["coefficient"], c["std_error"], c["z_value"], c["p_value"]]
+            [c["variable"], c["coefficient"], *(_or_na(c.get(k)) for k in ("std_error", "z_value", "p_value"))]
             for c in model.get("coefficients", [])
         ]
         story.append(_table(["Variable", "Coefficient", "Std error", "z", "p-value"], rows))
         story.append(Paragraph(f"Pseudo R²: {model.get('pseudo_r2')} — N obs: {model.get('n_obs')}", styles["Normal"]))
+        if model.get("penalty", "none") != "none":
+            story.append(Paragraph(_penalty_note(model), styles["Normal"]))
         story.append(Spacer(1, 12))
 
     if is_ml_final:

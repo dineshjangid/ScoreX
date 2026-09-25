@@ -25,6 +25,7 @@ from .routers import (
     scaling,
     selection,
     target,
+    tuning,
     validation,
     versions,
 )
@@ -61,6 +62,7 @@ app.include_router(binning.router, dependencies=protected)
 app.include_router(selection.router, dependencies=protected)
 app.include_router(modeling.router, dependencies=protected)
 app.include_router(ml_benchmark.router, dependencies=protected)
+app.include_router(tuning.router, dependencies=protected)
 app.include_router(final_model.router, dependencies=protected)
 app.include_router(scaling.router, dependencies=protected)
 app.include_router(validation.router, dependencies=protected)

@@ -201,16 +201,31 @@ export interface SelectionArtifact extends SelectionResult {
   config: SelectionConfigInput;
 }
 
+export type Penalty = "none" | "l1" | "l2";
+
 export interface ModelingConfigInput {
   variables: string[] | null;
+  penalty?: Penalty;
+  alpha?: number;
 }
+
+// KS/AUC/Gini of a model on one sample (before scaling to points).
+export interface SampleDiscrimination {
+  n_total: number;
+  ks: number;
+  auc: number;
+  gini: number;
+}
+
+export type SampleMetricsMap = Partial<Record<SampleKey, SampleDiscrimination | null>>;
 
 export interface CoefficientRow {
   variable: string;
   coefficient: number;
-  std_error: number;
-  p_value: number;
-  z_value: number;
+  // null for penalised fits, which have no standard errors.
+  std_error: number | null;
+  p_value: number | null;
+  z_value: number | null;
 }
 
 export interface ModelArtifact {
@@ -222,6 +237,12 @@ export interface ModelArtifact {
   pseudo_r2: number;
   aic: number;
   fitted_params: Record<string, number>;
+  // Absent on models fitted before tuning existed.
+  penalty?: Penalty;
+  alpha?: number;
+  dropped_variables?: string[];
+  candidate_id?: string | null;
+  sample_metrics?: SampleMetricsMap | null;
 }
 
 export interface FinalModelCandidate {
@@ -329,6 +350,18 @@ export interface HistogramBin {
   bin_start: number;
   bin_end: number;
   count: number;
+  // Share of the sample in this bin; absent on older validation results.
+  pct?: number | null;
+}
+
+export type SampleKey = "train" | "test" | "oot";
+
+// Per-sample charts. Deciles and histogram bins use the train sample's cut
+// points, so samples line up bucket for bucket.
+export interface SampleCurves {
+  roc: RocPoint[];
+  decile_table: DecileRow[];
+  score_histogram: HistogramBin[];
 }
 
 export interface ValidationArtifact {
@@ -342,6 +375,8 @@ export interface ValidationArtifact {
   psi_oot_vs_train: StabilityResult | null;
   csi_test_vs_train: Record<string, StabilityResult>;
   csi_oot_vs_train: Record<string, StabilityResult> | null;
+  // Absent on validation results saved before per-sample curves existed.
+  samples?: Partial<Record<SampleKey, SampleCurves>> | null;
 }
 
 export interface ReasonCodesConfigInput {
@@ -480,10 +515,29 @@ export const ML_ALGORITHM_LABELS: Record<MLAlgorithm, string> = {
   catboost: "CatBoost",
 };
 
-export interface MLBenchmarkConfigInput {
-  variables: string[] | null;
+export interface MLHyperparams {
   n_estimators: number;
   max_depth: number;
+  // null = the library's default.
+  learning_rate: number | null;
+  subsample: number | null;
+  min_samples_leaf: number | null;
+  l2_reg: number | null;
+}
+
+export type OptionalHyperparam = "learning_rate" | "subsample" | "min_samples_leaf" | "l2_reg";
+
+// Which optional knobs each algorithm honours (mirrors the engine's
+// HYPERPARAM_SUPPORT); n_estimators and max_depth apply to all.
+export const HYPERPARAM_SUPPORT: Record<MLAlgorithm, OptionalHyperparam[]> = {
+  random_forest: ["subsample", "min_samples_leaf"],
+  xgboost: ["learning_rate", "subsample", "l2_reg"],
+  lightgbm: ["learning_rate", "subsample", "min_samples_leaf", "l2_reg"],
+  catboost: ["learning_rate", "subsample", "l2_reg"],
+};
+
+export interface MLBenchmarkConfigInput extends MLHyperparams {
+  variables: string[] | null;
   algorithm: MLAlgorithm | "all";
 }
 
@@ -500,10 +554,37 @@ export interface MLBenchmarkResult {
   train_gini: number;
   test_gini: number;
   feature_importance: FeatureImportance[];
+  // Absent on results saved before tuning existed.
+  hyperparams?: MLHyperparams | null;
+  sample_metrics?: SampleMetricsMap | null;
+  candidate_id?: string | null;
 }
 
 export interface MLBenchmarkAllResult {
   results: Record<string, MLBenchmarkResult>;
+  new_candidate_ids: string[];
+}
+
+export interface ModelCandidate {
+  id: string;
+  kind: "logistic" | MLAlgorithm;
+  created_at: string;
+  created_by: string;
+  is_active: boolean;
+  variables: string[];
+  // Logistic: { penalty, alpha, dropped_variables }; ML: MLHyperparams.
+  settings: Record<string, unknown>;
+  sample_metrics: SampleMetricsMap;
+}
+
+export interface DownstreamSettings {
+  final_model_algorithm: string | null;
+  scaling: ScalingConfigInput | null;
+}
+
+export interface ModelCandidates {
+  candidates: ModelCandidate[];
+  downstream_settings: DownstreamSettings;
 }
 
 export const STEP_ORDER = [
@@ -641,6 +722,13 @@ export const api = {
     }),
   completeReporting: (projectId: string) =>
     request<ReportingStatus>(`/projects/${projectId}/reporting`, { method: "POST" }),
+  getModelCandidates: (projectId: string) => request<ModelCandidates>(`/projects/${projectId}/model_candidates`),
+  activateCandidate: (projectId: string, candidateId: string) =>
+    request<ModelCandidates>(`/projects/${projectId}/model_candidates/${candidateId}/activate`, { method: "POST" }),
+  deleteCandidate: (projectId: string, candidateId: string) =>
+    request<ModelCandidates>(`/projects/${projectId}/model_candidates/${candidateId}`, { method: "DELETE" }),
+  rebuildDownstream: (projectId: string) =>
+    request<ValidationArtifact>(`/projects/${projectId}/rebuild`, { method: "POST" }),
   runMlBenchmark: (projectId: string, body: MLBenchmarkConfigInput) =>
     request<MLBenchmarkAllResult>(`/projects/${projectId}/ml_benchmark`, {
       method: "POST",

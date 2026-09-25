@@ -25,6 +25,12 @@
   --blue-bg: rgba(37, 99, 201, 0.1);
   --blue-border: rgba(37, 99, 201, 0.35);
 
+  /* Train / Test / OOT chart series (validated categorical slots 1-3). */
+  --series-train: #2a78d6;
+  --series-test: #eb6834;
+  --series-oot: #1baf7a;
+  --chart-grid: #ecebee;
+
   --sidebar-width: 260px;
 
   --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
@@ -69,6 +75,11 @@
     --blue: #6ea8fe;
     --blue-bg: rgba(110, 168, 254, 0.14);
     --blue-border: rgba(110, 168, 254, 0.35);
+
+    --series-train: #3987e5;
+    --series-test: #d95926;
+    --series-oot: #199e70;
+    --chart-grid: #262831;
   }
 }
 

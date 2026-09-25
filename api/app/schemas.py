@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from pydantic import BaseModel
+from typing import Literal
+
+from pydantic import BaseModel, Field
 
 from credittool_engine.project import ScorecardType, StepStatus
 from credittool_engine.target import TargetMode
@@ -152,14 +154,25 @@ class SelectionResultOut(BaseModel):
 
 class ModelingConfigIn(BaseModel):
     variables: list[str] | None = None
+    penalty: Literal["none", "l1", "l2"] = "none"
+    # Penalty strength on the mean log-likelihood scale; ignored for "none".
+    alpha: float = Field(default=0.0, ge=0.0, le=10.0)
+
+
+class SampleDiscrimination(BaseModel):
+    n_total: int
+    ks: float
+    auc: float
+    gini: float
 
 
 class CoefficientOut(BaseModel):
     variable: str
     coefficient: float
-    std_error: float
-    p_value: float
-    z_value: float
+    # None for penalised fits, which have no standard errors.
+    std_error: float | None
+    p_value: float | None
+    z_value: float | None
 
 
 class ModelOut(BaseModel):
@@ -171,6 +184,13 @@ class ModelOut(BaseModel):
     pseudo_r2: float
     aic: float
     fitted_params: dict[str, float]
+    # Defaults keep modeling artifacts saved before tuning existed loadable.
+    penalty: Literal["none", "l1", "l2"] = "none"
+    alpha: float = 0.0
+    dropped_variables: list[str] = []
+    candidate_id: str | None = None
+    # "train" / "test" / "oot" -> KS/AUC/Gini of this model's P(bad).
+    sample_metrics: dict[str, SampleDiscrimination | None] | None = None
 
 
 class FinalModelSetIn(BaseModel):
@@ -273,12 +293,33 @@ class HistogramBin(BaseModel):
     bin_start: float
     bin_end: float
     count: int
+    # Share of the sample in this bin; absent on validation results saved
+    # before per-sample curves existed.
+    pct: float | None = None
 
 
-class MLBenchmarkConfigIn(BaseModel):
+class SampleCurves(BaseModel):
+    """Charts for one sample. Deciles and histogram bins use the train
+    sample's cut points, so train/test/OOT line up bucket for bucket."""
+
+    roc: list[RocPoint]
+    decile_table: list[DecileRow]
+    score_histogram: list[HistogramBin]
+
+
+class MLHyperparamsIn(BaseModel):
+    n_estimators: int = Field(default=100, ge=1, le=5000)
+    max_depth: int = Field(default=3, ge=1, le=16)
+    # None = the library's own default. Knobs an algorithm doesn't have
+    # are ignored (see engine HYPERPARAM_SUPPORT).
+    learning_rate: float | None = Field(default=None, gt=0, le=1)
+    subsample: float | None = Field(default=None, gt=0, le=1)
+    min_samples_leaf: int | None = Field(default=None, ge=1)
+    l2_reg: float | None = Field(default=None, ge=0)
+
+
+class MLBenchmarkConfigIn(MLHyperparamsIn):
     variables: list[str] | None = None
-    n_estimators: int = 100
-    max_depth: int = 3
     algorithm: str = "xgboost"  # "xgboost" | "random_forest" | "lightgbm" | "catboost" | "all"
 
 
@@ -295,10 +336,43 @@ class MLBenchmarkOut(BaseModel):
     train_gini: float
     test_gini: float
     feature_importance: list[FeatureImportanceOut]
+    # Absent on results saved before tuning existed.
+    hyperparams: MLHyperparamsIn | None = None
+    sample_metrics: dict[str, SampleDiscrimination | None] | None = None
+    candidate_id: str | None = None
 
 
 class MLBenchmarkAllOut(BaseModel):
     results: dict[str, MLBenchmarkOut]
+    # Candidate ids this run created, in run order.
+    new_candidate_ids: list[str] = []
+
+
+class ModelCandidateOut(BaseModel):
+    """One saved model fit, logistic or ML, for comparing while tuning."""
+
+    id: str
+    kind: str  # "logistic" | an ML algorithm name
+    created_at: str
+    created_by: str
+    is_active: bool
+    variables: list[str]
+    # Logistic: {"penalty", "alpha", "dropped_variables"}; ML: hyperparams.
+    settings: dict
+    sample_metrics: dict[str, SampleDiscrimination | None]
+
+
+class DownstreamSettingsOut(BaseModel):
+    """What Rebuild re-runs with: the last Final Model Selection choice and
+    Scaling config. None until each has been run once."""
+
+    final_model_algorithm: str | None = None
+    scaling: dict | None = None
+
+
+class ModelCandidatesOut(BaseModel):
+    candidates: list[ModelCandidateOut]
+    downstream_settings: DownstreamSettingsOut
 
 
 class ReasonCodesConfigIn(BaseModel):
@@ -331,6 +405,9 @@ class ValidationOut(BaseModel):
     psi_oot_vs_train: StabilityResult | None
     csi_test_vs_train: dict[str, StabilityResult]
     csi_oot_vs_train: dict[str, StabilityResult] | None
+    # Keyed "train" / "test" / "oot" (OOT only when that sample is non-empty).
+    # Optional so validation artifacts saved before this field still load.
+    samples: dict[str, SampleCurves] | None = None
 
 
 class VersionCreateIn(BaseModel):

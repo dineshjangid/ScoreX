@@ -14,6 +14,7 @@ from credittool_engine.binning import apply_binning
 from credittool_engine.project import Project, StepName, StepStatus, steps_for
 
 from .auth import AuthUser
+from .candidates import remember_downstream_settings
 from .db import UPLOADS_DIR, AuditLogRecord, ProjectRecord, now_iso
 
 
@@ -27,6 +28,9 @@ def invalidate_downstream(project: Project, record: ProjectRecord, from_step: St
     this whenever a step is (re)saved, since anything computed against its
     old output is now stale.
     """
+    # Capture the final-model choice and scaling config before they're
+    # dropped, so a later Rebuild can re-run them unchanged.
+    remember_downstream_settings(project)
     order = steps_for(project.scorecard_type)
     reset_steps = order[order.index(from_step) + 1 :]
     for step in reset_steps:

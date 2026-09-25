@@ -14,6 +14,7 @@ from credittool_engine.validation import (
     decile_table,
     population_stability_index,
     roc_curve_points,
+    score_bucket_edges,
     score_histogram,
     stability_index,
 )
@@ -21,7 +22,7 @@ from credittool_engine.validation import (
 from ..auth import AuthUser, get_current_user
 from ..db import get_session
 from ..repo import effective_final_model_artifact, final_model_path, get_record_or_404, invalidate_downstream, record_to_project, save_project
-from ..schemas import SampleMetrics, StabilityResult, ValidationOut
+from ..schemas import SampleCurves, SampleMetrics, StabilityResult, ValidationOut
 
 router = APIRouter(prefix="/api/projects/{project_id}/validation", tags=["validation"])
 
@@ -115,6 +116,20 @@ def run_validation(project_id: str, current_user: AuthUser = Depends(get_current
                 )
                 csi_oot[var] = StabilityResult(**stability_index(train_labels, oot_labels))
 
+        edges = score_bucket_edges(train_score)
+        value_range = (float(train_score.min()), float(train_score.max()))
+
+        def curves(bad_flag: pd.Series, score: pd.Series) -> SampleCurves:
+            return SampleCurves(
+                roc=roc_curve_points(bad_flag, score),
+                decile_table=decile_table(bad_flag, score, edges=edges),
+                score_histogram=score_histogram(score, value_range=value_range),
+            )
+
+        samples = {"train": curves(train_bad, train_score), "test": curves(test_bad, test_score)}
+        if len(oot_score) > 0:
+            samples["oot"] = curves(oot_bad, oot_score)
+
         result = ValidationOut(
             train=train_metrics,
             test=test_metrics,
@@ -126,6 +141,7 @@ def run_validation(project_id: str, current_user: AuthUser = Depends(get_current
             psi_oot_vs_train=psi_oot,
             csi_test_vs_train=csi_test,
             csi_oot_vs_train=csi_oot,
+            samples=samples,
         )
 
         project.set_artifact(StepName.VALIDATION, result.model_dump())

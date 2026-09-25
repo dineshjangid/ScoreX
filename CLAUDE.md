@@ -30,6 +30,12 @@ labels + audit trail, and champion/challenger versioning.
 - `API_BASE` in `web/src/api.ts` is build-time configurable
   (`VITE_API_BASE`); production default is same-origin `/api`. Never
   hardcode `localhost`.
+- Model Building keeps every fit as a candidate (`api/app/candidates.py`);
+  one candidate per model type is active (logistic = the `modeling`
+  artifact, each ML algorithm = its `ml_benchmark` result). New fits don't
+  activate themselves once one is active. `POST /rebuild` re-runs Final
+  Model Selection → Scaling → Validation with the remembered
+  `downstream_settings`.
 - Auth: local accounts plus Azure AD SAML (`api/app/saml_config.py`,
   `routers/saml_auth.py`). SAML role comes from Azure AD group claims on
   each login; `UserRecord.auth_source` is "local" or "saml".

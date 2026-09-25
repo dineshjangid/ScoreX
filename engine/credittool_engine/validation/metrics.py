@@ -39,6 +39,18 @@ def compute_auc_gini(bad_flag: pd.Series, score: pd.Series) -> tuple[float, floa
     return round(float(auc), 4), round(float(gini), 4)
 
 
+def discrimination_metrics(bad_flag: pd.Series, p_bad: pd.Series) -> dict[str, Any] | None:
+    """KS/AUC/Gini of a P(bad) prediction on one sample, for comparing
+    train/test/OOT while tuning a model (before it's scaled to points —
+    all three are rank-based, so they equal the scaled score's values).
+    None for an empty sample."""
+    if len(bad_flag) == 0:
+        return None
+    safer = -pd.Series(np.asarray(p_bad, dtype=float), index=bad_flag.index)
+    auc, gini = compute_auc_gini(bad_flag, safer)
+    return {"n_total": int(len(bad_flag)), "ks": compute_ks(bad_flag, safer), "auc": auc, "gini": gini}
+
+
 def roc_curve_points(bad_flag: pd.Series, score: pd.Series, max_points: int = 50) -> list[dict[str, float]]:
     if bad_flag.nunique() < 2:
         return []
@@ -47,44 +59,91 @@ def roc_curve_points(bad_flag: pd.Series, score: pd.Series, max_points: int = 50
     return [{"fpr": round(float(fpr[i]), 4), "tpr": round(float(tpr[i]), 4)} for i in idx]
 
 
-def decile_table(bad_flag: pd.Series, score: pd.Series, n_bins: int = 10) -> list[dict[str, Any]]:
+def score_bucket_edges(score: pd.Series, n_bins: int = 10) -> list[float]:
+    """Equal-population bucket edges from a reference (train) score, with
+    open outer ends so any other sample's scores fall into some bucket.
+    Pass these to decile_table(edges=...) to bucket test/OOT on the same
+    cut points as train, so their rows line up bucket for bucket."""
+    try:
+        _, edges = pd.qcut(score, q=n_bins, retbins=True, duplicates="drop")
+    except (ValueError, IndexError):
+        edges = np.array([], dtype=float)
+    inner = sorted({float(e) for e in np.asarray(edges, dtype=float)[1:-1]})
+    return [-np.inf, *inner, np.inf]
+
+
+def _bucket_label(lo: float, hi: float) -> str:
+    if np.isinf(lo) and np.isinf(hi):
+        return "all"
+    if np.isinf(lo):
+        return f"≤ {hi:g}"
+    if np.isinf(hi):
+        return f"> {lo:g}"
+    return f"{lo:g}–{hi:g}"
+
+
+def decile_table(
+    bad_flag: pd.Series, score: pd.Series, n_bins: int = 10, edges: list[float] | None = None
+) -> list[dict[str, Any]]:
     """One row per score decile, ordered riskiest (lowest score) first —
-    the standard lift-chart / calibration table."""
+    the standard lift-chart / calibration table.
+
+    With `edges` (from score_bucket_edges on the train score), rows use
+    those fixed buckets instead of this sample's own deciles, and every
+    bucket is reported even when empty so samples compare row for row."""
     frame = pd.DataFrame({"score": score, "bad": bad_flag})
+    total_bad = int((frame["bad"] == 1).sum())
+
+    def row(label: str, sub: pd.DataFrame) -> dict[str, Any]:
+        n_total = len(sub)
+        n_bad = int((sub["bad"] == 1).sum())
+        return {
+            "score_range": label,
+            "n_total": int(n_total),
+            "n_bad": n_bad,
+            "bad_rate_pct": round(n_bad / n_total * 100, 2) if n_total else 0.0,
+            "pct_of_total_bad": round(n_bad / total_bad * 100, 2) if total_bad else 0.0,
+        }
+
+    if edges is not None:
+        codes = pd.cut(frame["score"], bins=edges, labels=False, include_lowest=True)
+        return [
+            row(_bucket_label(edges[i], edges[i + 1]), frame[codes == i]) for i in range(len(edges) - 1)
+        ]
+
     try:
         frame["decile"] = pd.qcut(frame["score"], q=n_bins, duplicates="drop")
     except ValueError:
         frame["decile"] = pd.Categorical([str(frame["score"].iloc[0])] * len(frame))
 
-    total_bad = int((frame["bad"] == 1).sum())
-    rows = []
-    for interval, sub in frame.groupby("decile", observed=True, sort=True):
-        n_total = len(sub)
-        n_bad = int((sub["bad"] == 1).sum())
-        rows.append(
-            {
-                "score_range": str(interval),
-                "n_total": int(n_total),
-                "n_bad": n_bad,
-                "bad_rate_pct": round(n_bad / n_total * 100, 2) if n_total else 0.0,
-                "pct_of_total_bad": round(n_bad / total_bad * 100, 2) if total_bad else 0.0,
-            }
-        )
-    return rows
+    return [row(str(interval), sub) for interval, sub in frame.groupby("decile", observed=True, sort=True)]
 
 
-def score_histogram(score: pd.Series, n_bins: int = 20) -> list[dict[str, Any]]:
+def score_histogram(
+    score: pd.Series, n_bins: int = 20, value_range: tuple[float, float] | None = None
+) -> list[dict[str, Any]]:
     """Equal-width histogram of the score (not equal-population like
-    decile_table), for a distribution chart."""
+    decile_table), for a distribution chart. `pct` is the share of this
+    sample in each bin, so samples of different sizes can be overlaid.
+
+    Pass the train score's (min, max) as `value_range` to bin test/OOT on
+    the same edges as train; scores outside it are clipped into the end bins.
+    """
     if len(score) == 0:
         return []
-    lo, hi = float(score.min()), float(score.max())
+    lo, hi = value_range if value_range is not None else (float(score.min()), float(score.max()))
+    n = int(len(score))
     if lo == hi:
-        return [{"bin_start": lo, "bin_end": hi, "count": int(len(score))}]
+        return [{"bin_start": lo, "bin_end": hi, "count": n, "pct": 100.0}]
 
-    counts, edges = np.histogram(score, bins=n_bins, range=(lo, hi))
+    counts, edges = np.histogram(score.clip(lo, hi), bins=n_bins, range=(lo, hi))
     return [
-        {"bin_start": round(float(edges[i]), 2), "bin_end": round(float(edges[i + 1]), 2), "count": int(counts[i])}
+        {
+            "bin_start": round(float(edges[i]), 2),
+            "bin_end": round(float(edges[i + 1]), 2),
+            "count": int(counts[i]),
+            "pct": round(float(counts[i]) / n * 100, 2),
+        }
         for i in range(len(counts))
     ]
 

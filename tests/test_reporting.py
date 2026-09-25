@@ -70,3 +70,30 @@ def test_pdf_report_handles_missing_optional_sections():
     data["validation"] = None
     report_bytes = build_pdf_report(data)
     assert report_bytes[:4] == b"%PDF"
+
+
+def _penalised_report_data():
+    data = _sample_report_data()
+    data["modeling"].update(
+        penalty="l1",
+        alpha=0.02,
+        dropped_variables=["segment"],
+        coefficients=[{"variable": "age", "coefficient": -0.5, "std_error": None, "z_value": None, "p_value": None}],
+    )
+    return data
+
+
+def test_excel_report_marks_penalised_fit():
+    wb = load_workbook(io.BytesIO(build_excel_report(_penalised_report_data())))
+    rows = [[c.value for c in row] for row in wb["Model"].iter_rows()]
+    assert ["age", -0.5, "n/a", "n/a", "n/a"] in rows
+    assert ["Penalty", "L1", "alpha", 0.02] in [r[:4] for r in rows]
+    assert ["Dropped by penalty", "segment"] in [r[:2] for r in rows]
+
+
+def test_pdf_report_marks_penalised_fit():
+    reader = PdfReader(io.BytesIO(build_pdf_report(_penalised_report_data())))
+    text = "\n".join(page.extract_text() for page in reader.pages)
+    assert "None" not in text
+    assert "n/a" in text
+    assert "L1 penalty" in text and "segment" in text
