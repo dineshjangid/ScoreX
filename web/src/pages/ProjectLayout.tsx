@@ -19,6 +19,14 @@ export default function ProjectLayout() {
     api.getProject(id).then(setProject).catch((e) => setError(String(e)));
   }, [id]);
 
+  useEffect(() => {
+    if (!project) return;
+    document.title = `${project.name} · CSW`;
+    return () => {
+      document.title = "CSW — Credit Scorecards Workbench";
+    };
+  }, [project]);
+
   if (error) return <p className="error page-padding">{error}</p>;
   if (!project) return <p className="page-padding">Loading…</p>;
 
