@@ -19,6 +19,10 @@ export default function Sidebar({ project }: { project: ProjectDetail }) {
 
   return (
     <nav className="sidebar">
+      <NavLink to="/" className="sidebar-brand" aria-label="CSW — Credit Scorecards Workbench, all projects">
+        <span className="sidebar-brand-name">CSW</span>
+        <span className="sidebar-brand-tagline">Credit Scorecards Workbench</span>
+      </NavLink>
       <div className="sidebar-header">
         <NavLink to="/" className="sidebar-back">
           &larr; All projects
