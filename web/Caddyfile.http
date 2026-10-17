@@ -1,0 +1,14 @@
+# Plain-HTTP variant for hosts that put their own HTTPS in front of CSW,
+# such as a Docker Sandboxes published port (see docker-compose.sandbox.yml).
+# The on-prem setup uses ./Caddyfile, which terminates TLS itself.
+:8080 {
+	handle /api/* {
+		reverse_proxy api:8000
+	}
+
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+}
