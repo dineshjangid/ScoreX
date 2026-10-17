@@ -1,0 +1,35 @@
+# CSW for Docker Sandboxes (and any host that provides HTTPS in front of
+# the app). Serves plain HTTP on port 8080 with no certificate files and
+# no SAML — publish the port and the platform adds HTTPS.
+#
+#   docker compose -f docker-compose.sandbox.yml up -d --build
+#
+# The on-prem setup (internal-CA TLS, Azure AD SSO) is docker-compose.yml;
+# see DEPLOY.md.
+services:
+  api:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    restart: unless-stopped
+    environment:
+      CREDITTOOL_DATA_DIR: /data
+    volumes:
+      - csw_data:/data
+    # Reachable only from the web container, not from outside.
+
+  web:
+    build:
+      context: web
+      args:
+        VITE_API_BASE: /api
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./web/Caddyfile.http:/etc/caddy/Caddyfile:ro
+
+volumes:
+  csw_data:

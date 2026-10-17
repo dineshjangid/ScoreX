@@ -125,3 +125,54 @@ docker compose up -d --build
 ```
 
 Your data volume is untouched by rebuilds.
+
+## Alternative: Docker Sandboxes (Docker Agentic Platform)
+
+For a quick shared instance in a Docker cloud sandbox instead of your own
+server. The sandbox's published-port URL provides HTTPS, so CSW runs on
+plain HTTP inside it: no certificate files and no SSO.
+`docker-compose.sandbox.yml` serves the app on port 8080 using
+`web/Caddyfile.http`.
+
+**Before you start:**
+
+- **Treat the URL as public.** Anyone who has it can open the login page
+  and register an account, and every account sees every project. Use
+  synthetic or anonymised data only, and unpublish the port when you're
+  done.
+- **Allow the build's downloads.** The image build pulls from Docker Hub
+  (`registry-1.docker.io`, `auth.docker.io`,
+  `production.cloudflare.docker.com`), Debian packages
+  (`deb.debian.org`), PyPI (`pypi.org`, `files.pythonhosted.org`) and npm
+  (`registry.npmjs.org`). Add these to the sandbox's network allow-list if
+  it's restricted.
+- **Check data lifetime.** Projects live in the `csw_data` volume inside
+  the sandbox. Confirm how long your plan keeps a stopped sandbox before
+  relying on it.
+
+**Inside the sandbox** (its shell, where `docker` is available):
+
+```bash
+git clone https://github.com/dineshjangid/ScoreX.git   # or: cd ScoreX && git pull
+cd ScoreX
+docker compose -f docker-compose.sandbox.yml up -d --build
+docker compose -f docker-compose.sandbox.yml logs -f    # Ctrl+C stops following, not the app
+```
+
+The first build takes several minutes. After it starts, the API needs
+about 30 seconds to load before pages work; until then API calls return
+502.
+
+**On your own computer** (the `sbx` CLI runs there, not inside the
+sandbox):
+
+```bash
+sbx --cloud ls                                   # find the sandbox name
+sbx --cloud ports <sandbox-name> --publish 8080  # prints the public https:// URL
+```
+
+Open the URL, register on the login page, and create a project.
+
+- **Update:** `git pull && docker compose -f docker-compose.sandbox.yml up -d --build`.
+- **Stop:** `docker compose -f docker-compose.sandbox.yml down` (keeps data).
+- **Remove public access:** `sbx --cloud ports <sandbox-name> --unpublish 8080`.

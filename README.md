@@ -44,4 +44,5 @@ python -m pytest tests/
 ## Deploying
 
 See [`DEPLOY.md`](DEPLOY.md) for running this on-prem with Docker, HTTPS
-via your internal CA, and Azure AD SAML SSO.
+via your internal CA, and Azure AD SAML SSO. For a quick shared instance in a Docker cloud
+sandbox, see its "Docker Sandboxes" section (`docker-compose.sandbox.yml`).
